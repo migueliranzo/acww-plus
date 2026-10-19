@@ -99,7 +99,7 @@ typedef struct {
     u32 owner_ctx;      /* ov003 context that created this cache */
     u32 heap_free_seen; /* debug: largest free block at the last load attempt */
     u32 fail_count;     /* debug: loads refused (VRAM / heap / file) */
-    u32 retry_seq;      /* no load attempts before this frame_seq (scene settle delay) */
+    u32 retry_seq;      /* no load attempts before this frame_seq (scene settle delay, one load per frame) */
     u32 neg_model;      /* model whose load was refused last, and the frame_seq until it is not retried */
     u32 neg_seq;
     u32 arena_key[NUM_ARENAS];  /* NNS tex keys of the claimed texture arenas (0 = none) */
@@ -113,6 +113,7 @@ typedef struct {
 
 static OutdoorFtrCache *s_cache;
 static u16 s_dropping_item; /* furniture id being dropped from the pockets (0 = none) */
+u32 g_ftr_perf[4];          /* perf counters: models loaded, evictions, loads refused, draws */
 u32 g_ftr_dbg[4];           /* debug counters: shape calls, furniture hits, markers written, markers cleared */
 
 /* Collision cylinder for outdoor furniture: radius=0x0C, height=0x10, kind=0x06 */
@@ -407,7 +408,9 @@ static int find_victim(OutdoorFtrCache *c, u32 dist) {
     u32 far = dist + 2;
     for (i = 0; i < MAX_FTR_SLOTS; i++) {
         OutdoorFtrSlot *s = &c->slots[i];
-        if (s->model_id != 0xFFFF && s->last_frame_seq != c->frame_seq && s->last_used_tick < best_tick) {
+        /* Not drawn this frame nor the last one: really out of view. (Only "not drawn this frame" would also
+         * match models the draw loop has simply not reached yet, and thrash: ~4 reloads per frame.) */
+        if (s->model_id != 0xFFFF && s->last_frame_seq + 1 < c->frame_seq && s->last_used_tick < best_tick) {
             best_tick = s->last_used_tick;
             victim = i;
         }
@@ -415,7 +418,7 @@ static int find_victim(OutdoorFtrCache *c, u32 dist) {
     if (victim >= 0) {
         return victim;
     }
-    /* Everything was drawn this frame: a clearly farther model gives way to a nearer one */
+    /* Everything is in view: a clearly farther model gives way to a nearer one */
     for (i = 0; i < MAX_FTR_SLOTS; i++) {
         OutdoorFtrSlot *s = &c->slots[i];
         if (s->model_id != 0xFFFF && s->dist > far) {
@@ -478,6 +481,7 @@ static int pick_slot(OutdoorFtrCache *c, u32 tex_sz, u32 root_heap, u32 dist) {
         if (victim < 0) {
             return -1;
         }
+        g_ftr_perf[1]++;
         slot_release_model(&c->slots[victim], root_heap);
     }
 }
@@ -573,6 +577,7 @@ static int load_model(OutdoorFtrCache *c, u16 model_id, u32 root_heap, u32 dist)
 
     slot->arc_buf = arc_buf;
     slot->mdl_ptr = mdl_ptr;
+    g_ftr_perf[0]++;
     slot->model_id = model_id;
     slot->dist = (u8)dist;
     slot->last_frame_seq = 0;
@@ -635,6 +640,8 @@ static int draw_outdoor_furniture(u32 ctx, const u16 *item_ptr, const u32 *mtx_s
         if (!can_place(cache, dist)) {
             return 0;
         }
+        /* At most one load per frame: each load may wait up to one VBlank for the upload window */
+        cache->retry_seq = cache->frame_seq + 1;
         slot_idx = load_model(cache, model_id, root_heap, dist);
         if (slot_idx < 0) {
             cache->fail_count++;
