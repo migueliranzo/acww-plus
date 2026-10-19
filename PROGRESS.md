@@ -11,7 +11,7 @@ Build: `py -3.12 tools/build_rom.py` → `build/acww_plus.nds`. Headless tests: 
 | 4 | Sock / shoe color variations | todo | |
 | 5 | Trees can be shaken with a net or fishing rod equipped | todo | |
 | 6 | Tools swapped / put away with L/R | todo | |
-| 7 | Monkeys (Champ, Nana, Simon, Tammi, Monty, Elise) obtainable | todo | owner tests manually |
+| 7 | Monkeys (Champ, Nana, Simon, Tammi, Monty, Elise) obtainable | **done** (untested in play) | `docs/features/monkeys.md` |
 | 8 | Nookington's without multiplayer | **done** (untested in play) | `docs/features/nookingtons.md` |
 
 ## Log
