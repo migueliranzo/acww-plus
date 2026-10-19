@@ -32,5 +32,5 @@ Status: **done** (verified headless; `tools/test_skin_tone.py` 2/2 PASS, face co
 
 ## Not verified / notes
 - The walked-upstairs menu variant (scene ≠ 6) was not driven in the emulator. Only the wake-up screen was.
-- Fading over real days was not simulated. The floor logic is a direct clamp in the hook.
+- Fading over days: not simulated directly. `tools/test_look_persist.py` boots a save with base tone 3 and a faded tan of 0; town shows tan 3 and darker skin (PASS), which exercises the floor at actor init.
 - On the wake-up screen, the head rebuild resets the face animation, so the sleeping player's eyes open. This is cosmetic.

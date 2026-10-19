@@ -169,8 +169,8 @@ def stage_marker_only(e):
     e.shot("50_b_marker_only")
     print(f"  bed squares: (7,9)={grid_at(e, 9, 7, 9):#06x} (8,9)={grid_at(e, 9, 8, 9):#06x} "
           f"(7,10)={grid_at(e, 9, 7, 10):#06x} (8,10)={grid_at(e, 9, 8, 10):#06x}")
-    ok = 41.5 < x < 42.0 and grid_at(e, 9, 8, 10) == 0xF031
-    print(f"  RESULT marker-only B: {'PASS' if ok else 'CHECK'} (stopped x={x:.2f}, expect ~41.6..41.9)")
+    ok = 41.0 <= x < 42.0 and grid_at(e, 9, 8, 10) == 0xF031 and grid_at(e, 9, 7, 9) == 0x3000
+    print(f"  RESULT marker-only B: {'PASS' if ok else 'CHECK'} (stopped x={x:.2f}, expect 41.0..42.0 = blocked by the marker square (8,10), bed intact)")
 
 
 STAGES = {"marker": stage_marker_only, "pickup": stage_pickup, "collide": stage_collide, "drop": stage_drop, "house": stage_house}

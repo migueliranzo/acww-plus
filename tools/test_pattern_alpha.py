@@ -34,4 +34,12 @@ def run(rom, tag, port):
 
 if __name__ == "__main__":
     which = sys.argv[1] if len(sys.argv) > 1 else "plus"
-    print(run(ROM_VANILLA if which == "vanilla" else ROM_PLUS, which, 19896 if which == "vanilla" else 19895))
+    p = run(ROM_VANILLA if which == "vanilla" else ROM_PLUS, which, 19896 if which == "vanilla" else 19895)
+    print(p)
+    # left (index-0) half of the first design at screen ~ (75, 375): black in vanilla, ground in AC:WW+
+    im = Image.open(p).convert("RGB")
+    px = [im.getpixel((x, y)) for x in range(68, 82) for y in range(372, 382)]
+    dark = sum(1 for c in px if max(c) < 24)
+    print(f"  black pixels in the transparent half: {dark}/{len(px)}")
+    if which == "plus":
+        print(f"  RESULT index-0 pixels of a ground design are see-through: {'PASS' if dark < len(px) // 10 else 'FAIL'}")
