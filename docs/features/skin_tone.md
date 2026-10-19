@@ -22,7 +22,7 @@ Status: **done** (verified headless; `tools/test_skin_tone.py` 2/2 PASS, face co
 - **New text:** select2 #22 "Skin tone."; sequence1_ messages 0x43 (question, inline choice `{2:1:44451f}`) and 0x44 / 0x45 (reply, continues to 0x43).
 - **Tone step:** the phone talk's message-open callback (`func_ov004_0222d544`) is replaced by `hook_phone_msg_open`.
   - It is registered from the literal at `0x0222D9D8`; the vtable copy at `0x02251A04` is patched too.
-  - Opening 0x44 / 0x45 steps the tone, writes the tan and the base, then re-requests the head (`func_0200fb8c`) and body (`func_0200fe64`) builds, which copy the new skin palette.
+  - Opening 0x45 / 0x46 steps the tone, writes the tan and the base, re-requests the head build (`func_0200fb8c`) and refreshes the body palettes + upload (`body_colors_refresh`).
 - **Wake-up screen:** no player is current yet, so the code uses the sleeping player's actor (actor table `0x021D3F04`) and `player_record(actor)`.
 - **Fading floor:** both calls of `player_tan_level` (`0x0200DF00`, `0x0200FC6E`) go through `hook_player_tan_level`, which never returns a value below the base and stores it when the caller writes.
 

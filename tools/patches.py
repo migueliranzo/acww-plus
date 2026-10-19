@@ -63,4 +63,7 @@ PATCHES = [
     ("ov004", 0x0222D9D8, "ptr", "45d52202", "hook_phone_msg_open", "phone talk message-open callback (registered from this literal)"),
     ("arm9", 0x0200DF00, "bl", "02f06cfe", "hook_player_tan_level", "actor init -> player_tan_level"),
     ("arm9", 0x0200FC6E, "bl", "00f0b5ff", "hook_player_tan_level", "player_setup -> player_tan_level"),
+
+    # --- Feature 4: shoe / sock colours (src/body_colors.c) ---
+    ("arm9", 0x0200DF10, "bl", "00f03cf9", "hook_player_body_loader", "actor init -> player_body_loader"),
 ]

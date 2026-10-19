@@ -37,8 +37,10 @@ def main():
         print(f"  start: tan={t0} base word={w0:#06x}")
         e.press("down", hold=4, after=20)
         e.press("down", hold=4, after=20)
-        e.press("a", hold=4, after=120)    # Skin tone. -> question
-        e.shot("02_question")
+        e.press("a", hold=4, after=120)    # Change my look. -> look menu text
+        e.press("a", hold=4, after=100)    # -> look menu choices
+        e.shot("02_look_menu")
+        e.press("a", hold=4, after=120)    # Skin tone. -> skin question
         seq = []
         for name, downs in (("darker", 1), ("darker", 1), ("darker", 1), ("lighter", 0)):
             e.press("a", hold=4, after=100)  # question text -> choices
@@ -54,8 +56,20 @@ def main():
         e.press("a", hold=4, after=100)
         e.press("down", hold=4, after=30)
         e.press("down", hold=4, after=30)
-        e.press("a", hold=4, after=150)    # This is fine. -> "Is there anything else?"
-        e.shot("04_anything_else")
+        e.press("a", hold=4, after=150)    # This is fine. -> look menu
+        rec_look = lambda: e.u8(REC0 + 0x1DD9)
+        looks = [rec_look()]
+        for name, downs in (("shoes", 1), ("shoes", 1), ("socks", 2)):
+            e.press("a", hold=4, after=100)    # look menu text -> choices
+            for _ in range(downs):
+                e.press("down", hold=4, after=30)
+            e.press("a", hold=4, after=150)    # -> "How about these ...?"
+            e.shot(f"05_{name}_{len(looks)}")
+            looks.append(rec_look())
+            e.press("a", hold=4, after=150)    # -> back to the look menu
+        print(f"  look byte (shoes low, socks high): {[hex(x) for x in looks]}")
+        res.append(("shoes x2, socks x1 step the look byte", looks == [0x00, 0x01, 0x02, 0x12]))
+        e.shot("06_end")
     print()
     for n, ok in res:
         print(f"  RESULT {n}: {'PASS' if ok else 'FAIL'}")
