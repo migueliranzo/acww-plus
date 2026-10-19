@@ -9,7 +9,7 @@ Build: `py -3.12 tools/build_rom.py` → `build/acww_plus.nds`. Headless tests: 
 | 2 | Patterns can use transparency | todo | |
 | 3 | Skin tone can be changed on the attic phone | todo | |
 | 4 | Sock / shoe color variations | todo | |
-| 5 | Trees can be shaken with a net or fishing rod equipped | todo | |
+| 5 | Trees can be shaken with a net or fishing rod equipped | **done** | `docs/features/tree_shake.md` (bug-nearby exception untested) |
 | 6 | Tools swapped / put away with L/R | **done** | `docs/features/tool_swap.md` |
 | 7 | Monkeys (Champ, Nana, Simon, Tammi, Monty, Elise) obtainable | **done** (untested in play) | `docs/features/monkeys.md` |
 | 8 | Nookington's without multiplayer | **done** (untested in play) | `docs/features/nookingtons.md` |

@@ -31,3 +31,4 @@ Status: **done** (verified headless; `tools/test_tool_swap.py`, 7/7 PASS).
 
 ## Notes
 - Taps shorter than about 3 vblanks can fall between pad samples in the emulator. Real presses are longer.
+- Taps are also captured during the walk (action 3, pair `0x020D6814`) and skid (action 4, pair `0x020D680C`) ticks, while no direction is held. A tap made while slowing to a stop counts once the player stands.

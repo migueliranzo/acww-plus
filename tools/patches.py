@@ -37,4 +37,17 @@ PATCHES = [
     ("arm9", 0x020D65A4, "ptr", "69cc0002", "hook_player_stand_tick", "stand tick -> tool swap poll"),
     ("arm9", 0x020D6804, "ptr", "d9c30002", "hook_player_action05_tick", "action 5 (item-selected pose) tick -> back to stand after an L/R equip"),
     ("arm9", 0x020D6634, "ptr", "39950002", "hook_player_action3f_tick", "action 0x3F (equip) tick -> buffer L/R taps"),
+    ("arm9", 0x020D680C, "ptr", "71c40002", "hook_player_skid_tick", "action 4 (skid) tick -> buffer L/R taps"),
+    ("arm9", 0x020D6814, "ptr", "c9c60002", "hook_player_walk_tick", "action 3 (walk) tick -> buffer L/R taps"),
+
+    # --- Feature 5: shake trees with a rod or net equipped (src/tree_shake.c) ---
+    # func_ov003_022085dc (A-button use handler) -> func_ov003_02208430 (dispatch by tool kind), 8 calls
+    ("ov003", 0x022085FE, "bl", "fff717ff", "hook_ov003_use_dispatch", "use handler -> dispatch"),
+    ("ov003", 0x02208696, "bl", "fff7cbfe", "hook_ov003_use_dispatch", "use handler -> dispatch"),
+    ("ov003", 0x022086B8, "bl", "fff7bafe", "hook_ov003_use_dispatch", "use handler -> dispatch"),
+    ("ov003", 0x022086D6, "bl", "fff7abfe", "hook_ov003_use_dispatch", "use handler -> dispatch"),
+    ("ov003", 0x022087FC, "bl", "fff718fe", "hook_ov003_use_dispatch", "use handler -> dispatch"),
+    ("ov003", 0x022088A8, "bl", "fff7c2fd", "hook_ov003_use_dispatch", "use handler -> dispatch"),
+    ("ov003", 0x02208916, "bl", "fff78bfd", "hook_ov003_use_dispatch", "use handler -> dispatch"),
+    ("ov003", 0x02208946, "bl", "fff773fd", "hook_ov003_use_dispatch", "use handler -> dispatch"),
 ]

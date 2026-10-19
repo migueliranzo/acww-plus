@@ -14,6 +14,8 @@
 #define FN_STAND_TICK_ORIG          ((void (*)(u32, u32, u32, u32))(0x0200CC68 | 1))
 #define FN_ACTION05_TICK_ORIG       ((void (*)(u32, u32, u32, u32))(0x0200C3D8 | 1))
 #define FN_ACTION3F_TICK_ORIG       ((void (*)(u32, u32, u32, u32))(0x02009538 | 1))
+#define FN_SKID_TICK_ORIG           ((void (*)(u32, u32, u32, u32))(0x0200C470 | 1))
+#define FN_WALK_TICK_ORIG           ((void (*)(u32, u32, u32, u32))(0x0200C6C8 | 1))
 #define FN_PLAYER_EQUIP_ITEM        ((int (*)(u16 *item))(0x02094EC4 | 1))   /* queues action 0x3F */
 #define FN_PLAYER_REQUEST_STAND     ((int (*)(u32 actor, int pack, int prio, int arg))(0x0200CF6C | 1))
 #define FN_MENU_IS_IDLE             ((int (*)(void))(0x0206F468 | 1))
@@ -185,6 +187,22 @@ void hook_player_action05_tick(u32 actor, u32 a1, u32 a2, u32 a3) {
 void hook_player_action3f_tick(u32 actor, u32 a1, u32 a2, u32 a3) {
     FN_ACTION3F_TICK_ORIG(actor, a1, a2, a3);
     if (s_field_equip && actor == FN_GET_PLAYER_ACTOR(4)) {
+        capture_tap();
+    }
+}
+
+/* Hook: skid tick (action 4, pair at 0x020D680C), the short stop after walking: buffers a tap made while stopping. */
+void hook_player_skid_tick(u32 actor, u32 a1, u32 a2, u32 a3) {
+    FN_SKID_TICK_ORIG(actor, a1, a2, a3);
+    if (actor == FN_GET_PLAYER_ACTOR(4)) {
+        capture_tap();
+    }
+}
+
+/* Hook: walk tick (action 3, pair at 0x020D6814): buffers a tap made while slowing down (no direction held). */
+void hook_player_walk_tick(u32 actor, u32 a1, u32 a2, u32 a3) {
+    FN_WALK_TICK_ORIG(actor, a1, a2, a3);
+    if (actor == FN_GET_PLAYER_ACTOR(4)) {
         capture_tap();
     }
 }
