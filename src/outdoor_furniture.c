@@ -59,6 +59,7 @@
 #define VRAM_PAL_CUR_ADDR           ((volatile u32 *)0x021F2CB0)
 #define VRAM_TEX_HI_ADDR            ((volatile u32 *)0x021F2CB4) /* 4 regions, hi bounds */
 #define VRAM_TEX_LO_ADDR            ((volatile u32 *)0x021F2CC4) /* 4 regions, lo bounds */
+#define GAME_HOUR_ADDR              ((volatile u32 *)0x021DA9A4) /* game clock hour 0..23 (RTC + save offset) */
 #define VRAM_PAL_END_ADDR           ((volatile u32 *)0x021F2CD4)
 
 /* Item ids */
@@ -124,6 +125,29 @@ u32 g_ftr_dbg[4];           /* debug counters: shape calls, furniture hits, mark
 
 /* Collision cylinder for outdoor furniture: radius=0x0C, height=0x10, kind=0x06 */
 static const u8 s_furniture_shape[4] = { 0x0C, 0x10, 0x06, 0x00 };
+
+/* Light-source models: ftr_info indoor.bin byte 1 bit 4/5 (furniture_model_flag4_5), same in all 5 languages.
+ * exotic, regal, cabana, green, modern, lovely, robo-, snowman, mush lamps, blue dresser, mush stand, lantern,
+ * table lamp, desk light, candle, mini-lamp, festive candle. */
+static const u16 s_light_models[17] = {
+    0x007, 0x024, 0x031, 0x038, 0x043, 0x059, 0x06D, 0x077, 0x081, 0x089, 0x08A, 0x17F, 0x209, 0x20A, 0x20B, 0x20C, 0x20E
+};
+#define LAMP_NIGHT_EMI              0x4B9F   /* warm white (RGB555 31,28,18) */
+
+/* Lamps glow from 18:00 to 06:00 (the hours the town's own lights are on). */
+static int lamp_glows(u16 model_id) {
+    u32 h = *GAME_HOUR_ADDR;
+    int i;
+    if (h >= 6 && h < 18) {
+        return 0;
+    }
+    for (i = 0; i < 17; i++) {
+        if (s_light_models[i] == model_id) {
+            return 1;
+        }
+    }
+    return 0;
+}
 
 static int is_furniture_item(u16 item) {
     return (item >= FTR_ITEM_MIN && item < FTR_ITEM_MAX_EXCL);
@@ -869,7 +893,7 @@ static int draw_outdoor_furniture(u32 ctx, const u16 *item_ptr, const u32 *mtx_s
         FN_MTX_ROTATE_Y_MODEL(mtx_dst, facing << 14);
     }
 
-    emi = FN_LIGHT_SLOT2_TO_EMI();
+    emi = lamp_glows(model_id) ? LAMP_NIGHT_EMI : FN_LIGHT_SLOT2_TO_EMI();
     FN_NNS_G3D_SET_EMI_ALL(slot->mdl_ptr, emi);
     FN_MDL_OBJ_DRAW(slot->mdl_obj, 0);
     return 1;

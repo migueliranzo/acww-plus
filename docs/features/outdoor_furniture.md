@@ -1,9 +1,12 @@
 # Feature: furniture can be placed outdoors
 
-Status: **done** (verified headless on ndsref, 2026-10-19). Source: `src/outdoor_furniture.c`. Test: `tools/test_furniture.py [collide|drop|house|pickup|marker]`, or `ghost` / `treedrop` alone.
+Status: **done** (verified headless on ndsref, 2026-10-19). Source: `src/outdoor_furniture.c`. Test: `tools/test_furniture.py [collide|drop|house|pickup|marker]`, or `ghost` / `treedrop` / `lamp` alone.
 
 ## What the player sees
 - Furniture dropped outdoors from the pockets ("Drop on Ground") is drawn as its real 3D model, not a leaf.
+- Lamps and candles (the 17 light-source models of `ftr_info/indoor.bin`, byte 1 bits 4/5) glow warm white from
+  18:00 to 06:00: their whole model gets emission 0x4B9F instead of the town's time-of-day emission. They don't light
+  the ground (the DS has no point lights). Evidence: `ftrl_80_lamp_night`.
 - Furniture shaken out of a tree stays a leaf (vanilla look, not solid, no markers) until picked up. RAM only: after a
   save and reload, an unpicked tree drop shows as 3D furniture (owner's choice, 2026-10-20).
   - It uses the town's curved-drum matrix and time-of-day lighting.

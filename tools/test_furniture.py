@@ -54,7 +54,7 @@ def cache_state(e, label):
         print(f"     magic={hdr[0]:#x} tick={hdr[1]} fseq={hdr[3]} ctx={hdr[4]:#x} heap_free={hdr[5]:#x} "
               f"fails={hdr[6]} retry={hdr[7]} arenas={hdr[8]:#x}/{hdr[10]:#x} {hdr[9]:#x}/{hdr[11]:#x} "
               f"pltt={hdr[12]:#x} claimed={hdr[13]}")
-        slot_sz = 200
+        slot_sz = 232   # sizeof(OutdoorFtrSlot)
         print(f"     player grid=({hdr[14]},{hdr[15]})")
         for i in range(12):
             b = e.read(sc + 72 + i * slot_sz, 24)
@@ -231,8 +231,12 @@ def treedrop_main():
         walk_until(e, "left", 0, 42.8, max_frames=100)
         walk_until(e, "down", 2, 56.75, max_frames=60)   # (10,8) facing down at the leaf (10,9)
         where(e, "facing the leaf")
-        e.press("b", hold=6, after=150)
-        left = [d for d in find_furniture(e, 9) if d not in before]
+        for nudge in ("down", "up", "left"):   # B takes what is underfoot or in front; retry from a nudged spot
+            e.press("b", hold=6, after=150)
+            left = [d for d in find_furniture(e, 9) if d not in before]
+            if not left:
+                break
+            e.press(nudge, hold=6, after=30)
         print(f"  after B: furniture left from the drop {left}")
         e.press("y", hold=6, after=120)
         e.press("a", hold=6, after=95)
@@ -246,6 +250,40 @@ def treedrop_main():
         print(f"  dropped from the pockets: {placed}, models loaded {n2}")
         ok = not left and len(placed) == 1 and n2 >= 1
         print(f"  RESULT same piece dropped by the player is 3D: {'PASS' if ok else 'FAIL'} (picked up={not left}, placed={len(placed)}, loads={n2})")
+
+
+def material_emi(e, mdl):
+    """Emission (RGB555) of the first material of an NNSG3dResMdl: specEmi high half of the first NNSG3dResMatData."""
+    resmat = mdl + e.u32(mdl + 8)
+    dict_ = resmat + 4
+    info = dict_ + e.u16(dict_ + 6)
+    esz = e.u16(info)
+    md = resmat + e.u32(info + 4)
+    return (e.u32(md + 8) >> 16) & 0x7FFF
+
+
+def lamp_main():
+    """Exotic lamp (model 7) and exotic bench next to the door at 21:00 (save clock offset +9 h): the lamp's
+    materials must carry the warm night emission, the bench the town's normal emission."""
+    yard = {tile_off(9, 9, 8): 0x301C, tile_off(9, 13, 9): 0x300C}
+    night = {0x15FB4: struct.pack("<i", 9 * 60)}
+    save = prepare_save(PROJECT / "build" / "test_furniture_lamp.sav", edits=dict(bells=50000), grid=yard, pokes=night)
+    with Emu(ROM_PLUS, str(save), tag="ftrl") as e:
+        e.boot_to_town()
+        e.wait(300)
+        e.shot("80_lamp_night")
+        hour = e.u32(0x021DA9A4)
+        sc = e.u32(payload_symbols()["s_cache"])
+        emis = {}
+        for i in range(24):
+            b = e.read(sc + 72 + i * 232, 24)   # sizeof(OutdoorFtrSlot)
+            mid = struct.unpack_from("<H", b)[0]
+            mdl = struct.unpack_from("<I", b, 20)[0]
+            if mid != 0xFFFF and mdl:
+                emis[mid] = material_emi(e, mdl)
+        print(f"  hour={hour} emission by model: { {hex(k): hex(v) for k, v in emis.items()} }")
+        ok = hour >= 18 and emis.get(7) == 0x4B9F and 3 in emis and emis[3] != 0x4B9F
+        print(f"  RESULT lamp glows at night, bench does not: {'PASS' if ok else 'FAIL'} (hour={hour}, lamp={emis.get(7)}, bench={emis.get(3)})")
 
 
 def ghost_main():
@@ -263,6 +301,8 @@ STAGES = {"marker": stage_marker_only, "pickup": stage_pickup, "collide": stage_
 def main():
     if sys.argv[1:] == ["ghost"]:
         return ghost_main()
+    if sys.argv[1:] == ["lamp"]:
+        return lamp_main()
     if sys.argv[1:] == ["treedrop"]:
         return treedrop_main()
     for lx, lz, it in YARD:
