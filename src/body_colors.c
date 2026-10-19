@@ -2,11 +2,10 @@
  * AC:WW+ Shoe and sock colours (and the live body refresh used by the skin tone change).
  *
  * The body models (PBody/boy|grl.nsbmd) colour shoes and socks with their own palette "b1_pl":
- *   boy:  shoes 7..11 (a ramp from the colour to near white), socks 13
- *   girl: shoes 1 (colour), 3 (lighter), socks 15
- * In vanilla the sock texels share the white entry of the shoe trim (boy 12, girl 14), so tools/file_patches.py
- * (body_sock_index) moves them to the unused entry 13 / 15; recolouring keeps the shoe trim white.
- * (mapped in the emulator by recolouring texel regions, docs/features/shoes_socks.md).
+ *   boy:  shoes 7..11 (a ramp from the colour to near white), socks 4 (the vanilla green)
+ *   girl: shoes 1 (colour), 3 (lighter), socks 0 (black) and 4 (navy edge)
+ * The socks are the band between the shirt and the shoes, best seen with the player in bed. Those entries are
+ * used only by that band of texture b1 (mapped in the emulator on the wake-up screen, docs/features/shoes_socks.md).
  * Every player body is a per-player copy in RAM (player_body_cache) uploaded to its own VRAM slot, so the
  * entries are recoloured per player before upload. Choices live in the player record's PlayerTasks padding
  * (+0x1DD9: low nibble shoes, high nibble socks; 0 = the model's own colours).
@@ -135,7 +134,8 @@ static void recolor_body(u32 actor) {
             pal[3] = lighten(s_shoe_colors[shoes], 5);
         }
         if (socks) {
-            pal[15] = s_sock_colors[socks];
+            pal[0] = s_sock_colors[socks];
+            pal[4] = lighten(s_sock_colors[socks], 4);
         }
     } else {
         if (shoes) {
@@ -146,7 +146,7 @@ static void recolor_body(u32 actor) {
             }
         }
         if (socks) {
-            pal[13] = s_sock_colors[socks];
+            pal[4] = s_sock_colors[socks];
         }
     }
 }
@@ -173,12 +173,13 @@ void body_colors_refresh(u32 actor, u32 tone) {
         if (FN_PLAYER_IS_GIRL(actor)) {
             pal[1] = RGB5(248, 0, 0);
             pal[3] = RGB5(248, 80, 80);
-            pal[14] = RGB5(248, 248, 248);
-            pal[15] = RGB5(248, 248, 248);
+            pal[0] = RGB5(0, 0, 0);
+            pal[4] = RGB5(32, 48, 88);
         } else {
             for (i = 0; i < 9; i++) {
                 pal[7 + i] = s_boy[i];
             }
+            pal[4] = RGB5(0, 160, 80);
         }
     }
     recolor_body(actor);

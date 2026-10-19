@@ -12,11 +12,11 @@ Status: **done** (verified headless; `tools/test_skin_tone.py` look-byte PASS, a
 
 ## Where the colours are (mapped in the emulator)
 - Shoes and socks are part of the body models' own palette `b1_pl` (`PBody/boy|grl.nsbmd`), not of the clothes.
-  - **Boy:** shoes = indices 7–11 (a ramp from the colour to near white), socks = 13.
-  - **Girl:** shoes = 1 (colour) and 3 (lighter), socks = 15.
-  - In vanilla, the sock texels of texture `b1` share the white entry of the shoe trim (boy 12, girl 14), and 13–15 are unused. Recolouring that entry painted the shoe's white parts too (owner report, 2026-10-19).
-    - Fix: the file patch `body_sock_index` (`tools/file_patches.py`) moves the sock texels to entry 13 (boy) or 15 (girl). Those texels are the white band between the two mirrored shoe halves, x < 14.
-    - The band was mapped by giving each white region of `b1` its own colour in the emulator.
+  - **Boy:** shoes = indices 7–11 (a ramp from the colour to near white), socks = 4 (the vanilla green, (0, 160, 80)).
+  - **Girl:** shoes = 1 (colour) and 3 (lighter), socks = 0 (black) and 4 (navy edge).
+  - The socks are the band between the shirt and the shoes. They are hard to see while walking and clear with the player in bed (wake-up screen, phone menu).
+    - Mapped on the wake-up screen with marker colours. Those entries are used only by that band of texture `b1`.
+    - An earlier version recoloured the white entries (boy 12–15, girl 14–15). Those are the shoe's white trim, not socks (owner report, 2026-10-19).
 - Found by painting index groups in debug builds (`BODY_COLORS_DEBUG` 1/2/3 in `src/body_colors.c`) and zooming on the player's feet.
 - Probes: `tools/probes/body_map2.py`, `tools/probes/body_map_girl.py`. Analysis tool: `tools/analysis/nitro_tex.py` (TEX0 lister and renderer).
 

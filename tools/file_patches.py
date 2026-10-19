@@ -51,35 +51,4 @@ def look_menu_text(src: Path, dst: Path):
     return out
 
 
-def body_sock_index(src: Path, dst: Path):
-    """Player bodies: the sock texels of texture b1 share the white palette entry of the shoe trim (boy 12,
-    girl 14), so a sock colour also painted the shoe's white parts. Moves the sock texels (the white band between
-    the two mirrored shoe halves, x < 14, mapped in the emulator) to the unused entry 13 / 15, still white."""
-    import struct
-    import sys
-    sys.path.insert(0, str(Path(__file__).parent / "analysis"))
-    import nitro_tex
-    out = []
-    for name, old, new, rows in (("boy", 12, 13, range(6, 18)),
-                                 ("grl", 14, 15, list(range(7, 17)) + list(range(20, 24)))):
-        rel = Path("PBody") / f"{name}.nsbmd"
-        d = bytearray((src / rel).read_bytes())
-        texs, _, _, _ = nitro_tex.read_tex0(bytes(d))
-        t = [t for t in texs if t["name"] == "b1"][0]
-        assert (t["w"], t["h"], t["fmt"]) == (32, 32, 3), rel
-        moved = 0
-        for y in rows:
-            for x in range(14):
-                i = y * 32 + x
-                o = t["off"] + i // 2
-                sh = 4 if i & 1 else 0
-                if (d[o] >> sh) & 15 == old:
-                    d[o] = (d[o] & ~(15 << sh) & 0xFF) | (new << sh)
-                    moved += 1
-        assert moved > 20, (rel, moved)
-        (dst / rel).write_bytes(d)
-        out.append(rel)
-    return out
-
-
-FILE_PATCHES = [look_menu_text, body_sock_index]
+FILE_PATCHES = [look_menu_text]
