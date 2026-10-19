@@ -196,27 +196,54 @@ static void ensure_markers(const u16 *anchor, int ux, int uz) {
     }
 }
 
-/* True when a neighbouring multi-square furniture piece covers (ux, uz). */
-static int covered_by_neighbour(int ux, int uz) {
-    int dx, dz;
-    for (dz = -1; dz <= 1; dz++) {
-        for (dx = -1; dx <= 1; dx++) {
-            u16 *t;
-            u32 fp[2];
-            u32 n, i;
-            if (dx == 0 && dz == 0) {
-                continue;
-            }
-            t = town_tile(ux + dx, uz + dz);
-            if (t == 0 || !is_furniture_item(*t)) {
-                continue;
-            }
-            n = footprint_init(fp, t);
-            for (i = 1; i < n; i++) {
-                const s16 *sq = FN_FTPRINT_SQUARE(fp, i);
-                if (dx + sq[0] == 0 && dz + sq[1] == 0) {
-                    return 1;
-                }
+/*
+ * Squares covered by multi-square pieces, collected by the draw hook (every furniture piece in view is drawn
+ * each frame), double buffered per frame. The collision hook looks squares up here instead of searching the
+ * 8 neighbours of every empty square it is asked about (that search cost ~10% of the ARM9 in town).
+ */
+#define COVER_MAX 48
+static s16 s_cover[2][COVER_MAX][2];
+static u8 s_cover_n[2];
+static u8 s_cover_cur;
+static u8 s_cover_valid;
+static u32 s_cover_tag = 0xFFFFFFFF;
+
+static void cover_frame(u32 ctx) {
+    u32 tag = *(volatile u32 *)(ctx + 0x6A6C);
+    if (tag != s_cover_tag) {
+        s_cover_tag = tag;
+        s_cover_cur ^= 1;
+        s_cover_n[s_cover_cur] = 0;
+        s_cover_valid = 1;
+    }
+}
+
+static void cover_add(const u16 *anchor) {
+    u32 fp[2];
+    u32 n = footprint_init(fp, anchor);
+    u32 i;
+    int gx, gz;
+    if (n < 2 || !grid_coords(anchor, &gx, &gz)) {
+        return;
+    }
+    for (i = 1; i < n && s_cover_n[s_cover_cur] < COVER_MAX; i++) {
+        const s16 *sq = FN_FTPRINT_SQUARE(fp, i);
+        s16 *e = s_cover[s_cover_cur][s_cover_n[s_cover_cur]++];
+        e[0] = (s16)(gx + sq[0]);
+        e[1] = (s16)(gz + sq[1]);
+    }
+}
+
+/* True when a multi-square piece drawn this or the last frame covers the square at t. */
+static int cover_has(const u16 *t) {
+    int gx, gz, b, i;
+    if (!grid_coords(t, &gx, &gz)) {
+        return 0;
+    }
+    for (b = 0; b < 2; b++) {
+        for (i = 0; i < s_cover_n[b]; i++) {
+            if (s_cover[b][i][0] == gx && s_cover[b][i][1] == gz) {
+                return 1;
             }
         }
     }
@@ -812,6 +839,8 @@ void hook_ov003_draw_item(u8 *r7_frame) {
     int i;
 
     if (is_furniture_item(*item_ptr)) {
+        cover_frame(ctx);
+        cover_add(item_ptr);
         if (draw_outdoor_furniture(ctx, item_ptr, mtx_src)) {
             return;
         }
@@ -878,14 +907,14 @@ int hook_ov003_item_shape(u32 unused, int *radius, int *height, u32 *kind, int u
         shape = s_furniture_shape;
     } else if (item == ITEM_EMPTY) {
         /* A secondary square can be queried before its anchor: mark it as soon as it is seen */
-        if (!covered_by_neighbour(ux, uz)) {
+        if (!cover_has(item_ptr)) {
             return 0;
         }
         *item_ptr = ITEM_FTR_COVERED;
         g_ftr_dbg[2]++;
         shape = s_furniture_shape;
     } else if (item == ITEM_FTR_COVERED) {
-        if (!covered_by_neighbour(ux, uz)) {
+        if (s_cover_valid && !cover_has(item_ptr)) {
             g_ftr_dbg[3]++;
             *item_ptr = ITEM_EMPTY;
             return 0;

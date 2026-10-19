@@ -214,7 +214,11 @@ def apply_patches(syms):
     from patches import PATCHES
     mods = module_info()
     data = {}
+    skip = [x for x in os.environ.get("ACWW_SKIP", "").split(",") if x]   # experiments: skip patches by value
     for mod, addr, kind, expect, value, note in PATCHES:
+        if "*" in skip or any(x in str(value) for x in skip):
+            print(f"      SKIP  {mod} 0x{addr:08X} {value}")
+            continue
         if mod not in data:
             data[mod] = bytearray(mods[mod][0].read_bytes())
         buf, base = data[mod], mods[mod][2]
@@ -291,12 +295,19 @@ def main():
     if len(vanilla_itcm) > PAYLOAD_OFFSET_IN_ITCM:
         raise RuntimeError("Vanilla itcm.bin is larger than expected payload offset 0x5C00")
     padded_itcm = bytearray(vanilla_itcm) + bytearray(PAYLOAD_OFFSET_IN_ITCM - len(vanilla_itcm)) + bytearray(payload)
+    if os.environ.get("ACWW_NO_PAYLOAD") == "1":   # experiments: vanilla ITCM image
+        padded_itcm = bytearray(vanilla_itcm)
     (EXTRACTED_DIR / "arm9" / "itcm.bin").write_bytes(padded_itcm)
     itcm_yaml_txt = (VANILLA_EXTRACTED / "arm9" / "itcm.yaml").read_text(encoding="utf-8")
     itcm_yaml_txt = re.sub(r"code_size:\s*\d+", f"code_size: {len(padded_itcm)}", itcm_yaml_txt)
     (EXTRACTED_DIR / "arm9" / "itcm.yaml").write_text(itcm_yaml_txt, encoding="utf-8")
+    # Keep vanilla's compression flags: an earlier build had arm9 + all overlays "compressed: false", which
+    # cost ~12% of the ARM9 in town (tools/probes/headroom_probe.py: idle 47% vs 59%).
+    shutil.copyfile(VANILLA_EXTRACTED / "arm9" / "arm9.yaml", EXTRACTED_DIR / "arm9" / "arm9.yaml")
+    shutil.copyfile(VANILLA_EXTRACTED / "arm9_overlays" / "overlays.yaml", EXTRACTED_DIR / "arm9_overlays" / "overlays.yaml")
     apply_patches(syms)
-    apply_file_patches()
+    if os.environ.get("ACWW_NO_FILES") != "1":
+        apply_file_patches()
 
     print(f"[4/4] Building ROM {OUT_ROM}...")
     build_cmd = [
