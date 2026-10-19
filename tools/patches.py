@@ -66,4 +66,10 @@ PATCHES = [
 
     # --- Feature 4: shoe / sock colours (src/body_colors.c) ---
     ("arm9", 0x0200DF10, "bl", "00f03cf9", "hook_player_body_loader", "actor init -> player_body_loader"),
+
+    # --- Feature 2: transparent colour in patterns (src/pattern_alpha.c) ---
+    ("arm9", 0x02071864, "bl", "e4f75cf8", "hook_design_tex_upload", "design_textures_build: player design upload"),
+    # editor (ov123) L/R colour cycle includes colour 0 (transparent): L wraps at 0, R wraps 15 -> 0
+    ("ov123", 0x02295E58, "bytes", "0129", "0029", "editor L: cmp r1,#1 -> #0 (1 -> 0 -> 15)"),
+    ("ov123", 0x02295E90, "bytes", "0121", "0021", "editor R: wrap 15 -> 0 (was -> 1)"),
 ]
