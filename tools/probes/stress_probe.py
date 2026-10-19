@@ -33,6 +33,8 @@ with Emu(rom, str(save), port=port, tag=f"stress{n}") as e:
         r = e.c.cmd("read_io", cpu=9, addr=0x04000604, width=32)["value"]
         pmax = max(pmax, r & 0xFFF); vmax = max(vmax, (r >> 16) & 0x1FFF)
     b = e.u32(0x021F7E10)
+    hf = e.u32(sc + 0x14) if sc else 0
+    print(f"  heap largest free block at last load={hf:#x}")
     print(f"  pieces placed={len(grid)} models loaded={loaded} tex VRAM used={used:#x}  polys max={pmax} verts max={vmax}  game frames/300vbl={b - a}")
     p = e.shot("stress")
 Image.open(p).convert("RGB").crop((0, 192, 256, 384)).resize((512, 384), Image.NEAREST).save(str(p).replace(".png", "_zoom.png"))

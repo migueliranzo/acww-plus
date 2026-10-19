@@ -2,9 +2,11 @@
  * AC:WW+ Shoe and sock colours (and the live body refresh used by the skin tone change).
  *
  * The body models (PBody/boy|grl.nsbmd) colour shoes and socks with their own palette "b1_pl":
- *   boy:  shoes 7..11 (a ramp from the colour to near white), socks 12..15
- *   girl: shoes 1 (colour), 3 (lighter), socks 14..15
- * (mapped in the emulator by recolouring index groups, docs/features/shoes_socks.md).
+ *   boy:  shoes 7..11 (a ramp from the colour to near white), socks 13
+ *   girl: shoes 1 (colour), 3 (lighter), socks 15
+ * In vanilla the sock texels share the white entry of the shoe trim (boy 12, girl 14), so tools/file_patches.py
+ * (body_sock_index) moves them to the unused entry 13 / 15; recolouring keeps the shoe trim white.
+ * (mapped in the emulator by recolouring texel regions, docs/features/shoes_socks.md).
  * Every player body is a per-player copy in RAM (player_body_cache) uploaded to its own VRAM slot, so the
  * entries are recoloured per player before upload. Choices live in the player record's PlayerTasks padding
  * (+0x1DD9: low nibble shoes, high nibble socks; 0 = the model's own colours).
@@ -133,7 +135,6 @@ static void recolor_body(u32 actor) {
             pal[3] = lighten(s_shoe_colors[shoes], 5);
         }
         if (socks) {
-            pal[14] = s_sock_colors[socks];
             pal[15] = s_sock_colors[socks];
         }
     } else {
@@ -145,10 +146,7 @@ static void recolor_body(u32 actor) {
             }
         }
         if (socks) {
-            pal[12] = s_sock_colors[socks];
             pal[13] = s_sock_colors[socks];
-            pal[14] = s_sock_colors[socks];
-            pal[15] = s_sock_colors[socks];
         }
     }
 }

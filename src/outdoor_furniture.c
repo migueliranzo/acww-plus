@@ -43,7 +43,10 @@
 #define FN_MDL_OBJ_DRAW             ((void (*)(void *mdl_obj, void *scale_or_0))(0x02055738 | 1))
 #define FN_MDL_OBJ_DRAW_SIMPLE      ((void (*)(void *mdl_obj, void *scale_or_0))(0x0205574C | 1))
 #define FN_MODEL_BIND               ((int (*)(void *mdl_obj, void *mdl_ptr, void *tex_res))(0x020557FC | 1))
-#define FN_TEX_UPLOAD_TO_SLOT       ((u32 (*)(void *tex_res, void *vram_slot))(0x02055920 | 1))
+#define FN_VRAMKEYS_APPLY           ((void (*)(void *vram_slot, void *tex_res))(0x0205540C | 1))
+#define FN_VRAM_REQ_CANCEL          ((void (*)(void *req))(0x020B8E9C | 1))
+#define FN_VRAM_REQ_SUBMIT_TEXLOAD  ((int (*)(void *req, void *tex_res, int flag))(0x020B8EC4 | 1))
+#define FN_VRAM_REQ_CTOR            ((void *(*)(void *req))(0x020B8FF4 | 1))
 #define FN_FS_LOAD_DECOMPRESS       ((void *(*)(const char *path, u32 heap, int align, u32 *out_sz))(0x02064490 | 1))
 #define FN_LIGHT_SLOT2_TO_EMI       ((u16 (*)(void))(0x02064F68 | 1))
 #define FN_OV003_SHAPE_LOOKUP_ORIG  ((const u8 *(*)(const u16 *item_ptr))(0x022235BC | 1))
@@ -75,7 +78,7 @@
 #define ARENA_DELAY_FRAMES          30       /* frames after the first draw before VRAM is claimed */
 #define RETRY_DELAY_FRAMES          20       /* frames to wait after a load was refused */
 #define CACHE_MAGIC                 0x46545243 /* 'FTRC' */
-#define REG_VCOUNT                  (*(volatile u16 *)0x04000006)
+#define REQ_PENDING(s)              (((u8 *)(s)->req)[0xD] == 1) /* queued, not yet copied to VRAM */
 
 typedef struct {
     u16 model_id;       /* 0xFFFF when unoccupied */
@@ -89,6 +92,8 @@ typedef struct {
     void *mdl_ptr;      /* NNSG3dResMdl* inside arc_buf */
     u32 vram_slot[5];   /* 0x14-byte VRAM key set (vtable, tex, tex4x4, pltt, flag) */
     u32 mdl_obj[39];    /* 0x9C-byte AC:WW render model wrapper */
+    void *btx_buf;      /* .nsbtx buffer, kept until the queued upload ran */
+    u32 req[7];         /* 0x1C-byte VBlank VRAM request (the game's own texture upload queue) */
 } OutdoorFtrSlot;
 
 typedef struct {
@@ -379,6 +384,8 @@ static OutdoorFtrCache *get_or_create_cache(u32 root_heap, u32 ctx) {
     for (i = 0; i < MAX_FTR_SLOTS; i++) {
         int j;
         c->slots[i].model_id = 0xFFFF;
+        c->slots[i].btx_buf = 0;
+        FN_VRAM_REQ_CTOR(c->slots[i].req);
         c->slots[i].arena = 0;
         c->slots[i].dist = 0;
         c->slots[i].tex_off = 0;
@@ -396,6 +403,13 @@ static OutdoorFtrCache *get_or_create_cache(u32 root_heap, u32 ctx) {
 }
 
 static void slot_release_model(OutdoorFtrSlot *slot, u32 root_heap) {
+    if (REQ_PENDING(slot)) {
+        FN_VRAM_REQ_CANCEL(slot->req);
+    }
+    if (slot->btx_buf != 0) {
+        FN_HEAP_FREE(root_heap, slot->btx_buf);
+    }
+    slot->btx_buf = 0;
     if (slot->arc_buf != 0) {
         FN_HEAP_FREE(root_heap, slot->arc_buf);
     }
@@ -510,17 +524,6 @@ static int pick_slot(OutdoorFtrCache *c, u32 tex_sz, u32 root_heap, u32 dist) {
         }
         g_ftr_perf[1]++;
         slot_release_model(&c->slots[victim], root_heap);
-    }
-}
-
-/* Waits for the start of VBlank, when the 3D engine is not reading texture VRAM. */
-static void wait_vblank_window(void) {
-    u32 guard = 0;
-    while (guard++ < 0x80000) {
-        u16 v = REG_VCOUNT;
-        if (v >= 192 && v < 202) {
-            return;
-        }
     }
 }
 
@@ -699,13 +702,14 @@ static int load_model(OutdoorFtrCache *c, u16 model_id, u32 root_heap, u32 dist)
     mdl_set = FN_NNS_G3D_GET_MDL_SET(bmd_file);
     mdl_ptr = (void *)(mdl_set + *(u32 *)(mdl_set + *(u16 *)(mdl_set + 0x0E) + 0x0C));
 
-    /* Point the slot's key set at its arena piece and its palette part, then upload during VBlank */
+    /* Point the slot's key set at its arena piece and its palette part. The copy itself goes through the game's
+     * VBlank request queue (cache flush + NNS_G3dTexLoad/PlttLoad in its VBlank window), like the player's body
+     * textures: a direct upload from the draw loop raced the game's own VRAM transfers on hardware. */
     FN_VRAM_SLOT_INIT(slot->vram_slot);
     slot->vram_slot[1] = c->arena_key[slot->arena] + (slot->tex_off >> 3);
     slot->vram_slot[2] = 0;
     slot->vram_slot[3] = c->pltt_key + (u32)idx * (PLTT_SLOT_SIZE >> 3);
-    wait_vblank_window();
-    FN_TEX_UPLOAD_TO_SLOT(tex_res, slot->vram_slot);
+    FN_VRAMKEYS_APPLY(slot->vram_slot, tex_res);
     FN_MDL_OBJ_INIT(slot->mdl_obj);
     FN_MODEL_BIND(slot->mdl_obj, mdl_ptr, tex_res);
 #if FTR_HALF_RES
@@ -713,9 +717,12 @@ static int load_model(OutdoorFtrCache *c, u16 model_id, u32 root_heap, u32 dist)
 #endif
     slot->mdl_obj[0x60 / 4] = 0;
 
-    /* The texture image and palette now live in VRAM; the .nsbtx buffer is no longer needed */
-    FN_HEAP_FREE(root_heap, btx_buf);
-
+    if (!FN_VRAM_REQ_SUBMIT_TEXLOAD(slot->req, tex_res, 1)) {
+        FN_HEAP_FREE(root_heap, arc_buf);
+        FN_HEAP_FREE(root_heap, btx_buf);
+        return -1;
+    }
+    slot->btx_buf = btx_buf;
     slot->arc_buf = arc_buf;
     slot->mdl_ptr = mdl_ptr;
     g_ftr_perf[0]++;
@@ -781,7 +788,7 @@ static int draw_outdoor_furniture(u32 ctx, const u16 *item_ptr, const u32 *mtx_s
         if (!can_place(cache, dist)) {
             return 0;
         }
-        /* At most one load per frame: each load may wait up to one VBlank for the upload window */
+        /* At most one load per frame: each load reads two files from the card */
         cache->retry_seq = cache->frame_seq + 1;
         slot_idx = load_model(cache, model_id, root_heap, dist);
         if (slot_idx < 0) {
@@ -798,6 +805,13 @@ static int draw_outdoor_furniture(u32 ctx, const u16 *item_ptr, const u32 *mtx_s
         slot->dist = (u8)dist;
     }
     slot->last_frame_seq = cache->frame_seq;
+    if (slot->btx_buf != 0) {
+        if (REQ_PENDING(slot)) {
+            return 0; /* texture not in VRAM yet: leaf this frame */
+        }
+        FN_HEAP_FREE(root_heap, slot->btx_buf);
+        slot->btx_buf = 0;
+    }
 
     /* Copy the drum-bent tile matrix (rows 0-2 basis, row 3 translation, fx32) into mdl_obj + 0x64 */
     mtx_dst = &slot->mdl_obj[0x64 / 4];

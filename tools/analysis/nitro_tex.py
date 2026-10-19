@@ -2,7 +2,10 @@
 usage: py -3.12 -I nitro_tex.py FILE.nsbmd OUTDIR [palette_override.bin]"""
 import struct, sys
 from pathlib import Path
-from PIL import Image
+try:
+    from PIL import Image
+except ImportError:  # only rendering needs PIL; the build imports the reader
+    Image = None
 
 
 def lz10(d):

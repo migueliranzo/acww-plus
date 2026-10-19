@@ -32,7 +32,8 @@ Status: **done** (verified headless on ndsref, 2026-10-19). Source: `src/outdoor
   - One 12×0x80 palette block is claimed too.
   - Textures are sub-allocated first-fit inside the arenas (0x40 granule).
   - Eviction: least recently used among models drawn neither this frame nor the last; at most one load per frame. If everything is in view, a model more than 2 squares farther from the player gives way to a nearer one.
-  - Uploads wait for VCOUNT 192..201, so texture VRAM is never remapped while the 3D engine reads it. This is a hardware-safety measure.
+  - Uploads go through the game's own VBlank VRAM request queue (`vram_req_b_submit_texload`, the same path as the player's body textures). It flushes the data cache and copies inside the game's VBlank budget. The model shows as a leaf until its request is done, then the .nsbtx buffer is freed. A pending request is cancelled on eviction and teardown.
+    - Before 2026-10-19 the draw loop uploaded directly, after a VCOUNT busy-wait, with no cache flush. A beach table placed outdoors froze a real DS (flashcart); melonDS doesn't model the cache or DMA timing, so it never reproduced there.
   - The heap's largest free block is checked first: at least 48 KB must be free before a load. This avoids the allocator's fatal path.
   - A refused model is not retried for 20 frames, so there are no per-frame cartridge reads.
 
