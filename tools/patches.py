@@ -6,6 +6,7 @@ Each patch: (module, address, kind, expected_hex, value, note)
   kind    : "bl"    -> Thumb BL at address to payload symbol `value`
             "bytes" -> raw bytes `value` (hex string)
             "ptr"   -> u32 pointer to payload symbol `value` (Thumb bit set)
+            "dptr"  -> u32 pointer to payload data symbol `value`
   expected: vanilla bytes at address (hex), checked before patching
 """
 
@@ -50,4 +51,16 @@ PATCHES = [
     ("ov003", 0x022088A8, "bl", "fff7c2fd", "hook_ov003_use_dispatch", "use handler -> dispatch"),
     ("ov003", 0x02208916, "bl", "fff78bfd", "hook_ov003_use_dispatch", "use handler -> dispatch"),
     ("ov003", 0x02208946, "bl", "fff773fd", "hook_ov003_use_dispatch", "use handler -> dispatch"),
+
+    # --- Feature 3: skin tone on the upstairs phone (src/skin_tone.c, text in tools/file_patches.py) ---
+    ("ov004", 0x0222D5A6, "bytes", "0322", "0422", "Service Center choices: cancel index 3 -> 4 (5 entries)"),
+    ("ov004", 0x0222D5EC, "dptr", "78192502", "g_phone_choice_list", "upstairs Service Center choice list"),
+    ("ov004", 0x0222D4A8, "dptr", "78392402", "g_phone_next_msg", "upstairs Service Center choice -> message"),
+    ("ov004", 0x0222D5B2, "bytes", "0222", "0322", "Service Center (walked upstairs): cancel index 2 -> 3"),
+    ("ov004", 0x0222D5F0, "dptr", "80192502", "g_phone_choice_list_awake", "walked-upstairs Service Center choice list"),
+    ("ov004", 0x0222D4AC, "dptr", "74392402", "g_phone_next_msg_awake", "walked-upstairs Service Center choice -> message"),
+    ("ov004", 0x02251A04, "ptr", "45d52202", "hook_phone_msg_open", "phone talk message-open callback (table)"),
+    ("ov004", 0x0222D9D8, "ptr", "45d52202", "hook_phone_msg_open", "phone talk message-open callback (registered from this literal)"),
+    ("arm9", 0x0200DF00, "bl", "02f06cfe", "hook_player_tan_level", "actor init -> player_tan_level"),
+    ("arm9", 0x0200FC6E, "bl", "00f0b5ff", "hook_player_tan_level", "player_setup -> player_tan_level"),
 ]

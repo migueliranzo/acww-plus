@@ -228,6 +228,8 @@ def apply_patches(syms):
             new = encode_thumb_bl(addr, syms[value])
         elif kind == "ptr":
             new = struct.pack("<I", syms[value] | 1)
+        elif kind == "dptr":
+            new = struct.pack("<I", syms[value])
         elif kind == "bytes":
             new = bytes.fromhex(value)
         else:
@@ -240,6 +242,23 @@ def apply_patches(syms):
             dst.write_bytes(data[mod])
         elif not dst.exists() or dst.read_bytes() != src.read_bytes():
             shutil.copyfile(src, dst)
+
+
+def apply_file_patches():
+    """Restores the files edited by the previous build, then applies tools/file_patches.py on fresh copies."""
+    from file_patches import FILE_PATCHES
+    src = VANILLA_EXTRACTED / "files"
+    dst = EXTRACTED_DIR / "files"
+    log = ROOT_DIR / "build" / "files_modified.txt"
+    if log.exists():
+        for rel in log.read_text().split():
+            shutil.copyfile(src / rel, dst / rel)
+    done = []
+    for fn in FILE_PATCHES:
+        for rel in fn(src, dst):
+            done.append(str(rel).replace(chr(92), "/"))
+            print(f"      files/{done[-1]}  ({fn.__name__})")
+    log.write_text(chr(10).join(done) + chr(10))
 
 
 def write_unity_source():
@@ -277,6 +296,7 @@ def main():
     itcm_yaml_txt = re.sub(r"code_size:\s*\d+", f"code_size: {len(padded_itcm)}", itcm_yaml_txt)
     (EXTRACTED_DIR / "arm9" / "itcm.yaml").write_text(itcm_yaml_txt, encoding="utf-8")
     apply_patches(syms)
+    apply_file_patches()
 
     print(f"[4/4] Building ROM {OUT_ROM}...")
     build_cmd = [
