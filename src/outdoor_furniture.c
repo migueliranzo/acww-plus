@@ -205,9 +205,12 @@ static void ensure_markers(const u16 *anchor, int ux, int uz) {
  * Squares covered by multi-square pieces, collected by the draw hook (every furniture piece in view is drawn
  * each frame), double buffered per frame. The collision hook looks squares up here instead of searching the
  * 8 neighbours of every empty square it is asked about (that search cost ~10% of the ARM9 in town).
+ * Each entry is { square, anchor } as town grid indices. The list only turns over while furniture is drawn, so
+ * once the last piece in view is picked up it goes stale: an entry counts only while its anchor still holds
+ * furniture (otherwise the picked-up piece's second square stayed solid and invisible).
  */
 #define COVER_MAX 48
-static s16 s_cover[2][COVER_MAX][2];
+static u16 s_cover[2][COVER_MAX][2];
 static u8 s_cover_n[2];
 static u8 s_cover_cur;
 static u8 s_cover_valid;
@@ -233,21 +236,25 @@ static void cover_add(const u16 *anchor) {
     }
     for (i = 1; i < n && s_cover_n[s_cover_cur] < COVER_MAX; i++) {
         const s16 *sq = FN_FTPRINT_SQUARE(fp, i);
-        s16 *e = s_cover[s_cover_cur][s_cover_n[s_cover_cur]++];
-        e[0] = (s16)(gx + sq[0]);
-        e[1] = (s16)(gz + sq[1]);
+        int x = gx + sq[0];
+        int z = gz + sq[1];
+        u16 *e;
+        if ((u32)x >= 64 || (u32)z >= 64) {
+            continue;
+        }
+        e = s_cover[s_cover_cur][s_cover_n[s_cover_cur]++];
+        e[0] = (u16)((((z >> 4) << 2) + (x >> 4)) * 256 + (z & 15) * 16 + (x & 15));
+        e[1] = (u16)(((const u8 *)anchor - (const u8 *)TOWN_GRID_RAM) >> 1);
     }
 }
 
-/* True when a multi-square piece drawn this or the last frame covers the square at t. */
+/* True when a furniture piece drawn this or the last frame covers the square at t and is still there. */
 static int cover_has(const u16 *t) {
-    int gx, gz, b, i;
-    if (!grid_coords(t, &gx, &gz)) {
-        return 0;
-    }
+    u32 idx = (u32)((const u8 *)t - (const u8 *)TOWN_GRID_RAM) >> 1;
+    int b, i;
     for (b = 0; b < 2; b++) {
         for (i = 0; i < s_cover_n[b]; i++) {
-            if (s_cover[b][i][0] == gx && s_cover[b][i][1] == gz) {
+            if (s_cover[b][i][0] == idx && is_furniture_item(((const u16 *)TOWN_GRID_RAM)[s_cover[b][i][1]])) {
                 return 1;
             }
         }

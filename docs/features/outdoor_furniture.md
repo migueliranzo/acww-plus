@@ -1,6 +1,6 @@
 # Feature: furniture can be placed outdoors
 
-Status: **done** (verified headless on ndsref, 2026-10-19). Source: `src/outdoor_furniture.c`. Test: `tools/test_furniture.py [collide|drop|house|pickup|marker]`.
+Status: **done** (verified headless on ndsref, 2026-10-19). Source: `src/outdoor_furniture.c`. Test: `tools/test_furniture.py [collide|drop|house|pickup|marker]`, or `ghost` alone.
 
 ## What the player sees
 - Furniture dropped outdoors from the pockets ("Drop on Ground") is drawn as its real 3D model, not a leaf.
@@ -26,6 +26,12 @@ Status: **done** (verified headless on ndsref, 2026-10-19). Source: `src/outdoor
   - The game treats 0xF031 as a special, non-pickable id (`item_is_special_slot_id`).
   - Markers are written lazily by the collision hook, when the anchor or the secondary square is queried, so no drop-completion hook is needed.
   - An 0xF031 with no covering anchor (after a pickup) is reset to 0xFFF1 the first time anything walks near it.
+  - "Covering anchor" means: a piece drawn this or the last frame listed the square (coverage list), **and** that anchor
+    square still holds furniture. The anchor check was added on 2026-10-20 after a ghost seen on a real DS: once the
+    last piece in view was picked up, nothing was drawn any more, so the coverage list never turned over and kept its
+    second square solid (and even re-marked it). Placing a piece elsewhere made the list turn over, which is why the
+    old ghost then cleared itself. Now the marker clears as soon as the player next to the piece is collision-checked,
+    in practice the frame of the pickup. Regression test: `test_furniture.py ghost`.
 - **2×2 draw offset:** the model sits on the shared corner (+0x1000 x/z), as in `ov004_furniture_object_init`.
 - **Model cache** (heap object, at most 24 models; textures halved before upload, texture matrix enabled so UVs scale):
   - After a 30-frame settle delay, two texture arenas are claimed from the frame VRAM manager. Each leaves 0x200 free per region; in town that is about 43 KB.
@@ -39,7 +45,7 @@ Status: **done** (verified headless on ndsref, 2026-10-19). Source: `src/outdoor
 
 ## Limits / known behaviour
 - **Texture memory is the ceiling.** Outdoor textures are loaded at half resolution (`tex_halve`, 4× less VRAM), so about 20+ distinct models show at once; 21 were drawn in the 24-piece stress test, at 20 fps. Beyond that, the farthest pieces show as leaves until the player walks closer. Details: `docs/OPTIMIZATION_REPORT.md`.
-- Interaction (sit, lie down, lamps, radios) is not implemented outdoors. Optional per the brief, and it would need the ov004 actor classes.
+- Interaction (sit, lie down, lamps, radios) is not implemented outdoors. Optional per the brief, and it would need the ov004 actor classes. Effort and risk: `docs/research/outdoor_furniture_interaction.md`.
 - Multiplayer: marker writes are local. Visitors see furniture as leaves unless they run the hack too.
 - Vanilla save compatibility: a hacked town loaded in vanilla shows furniture as leaves. Any 0xF031 squares stay inert, special-id squares that can't be picked up.
 

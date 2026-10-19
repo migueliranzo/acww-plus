@@ -4,7 +4,7 @@ Outdoor furniture test (ndsref, headless).
 Yard around the player's house (acre 9) gets 1x1, 2-square (two facings) and 2x2 pieces, with more distinct
 models than the old fixed 5-slot cache could hold. Pockets get a 2x2 bed, a 2-square couch and a chair.
 Checks: 3D draw, cache state, F031 markers on secondary squares, pocket drop, teardown on entering the house.
-usage: test_furniture.py [stage ...]   stages: yard drop house (default: all)
+usage: test_furniture.py [stage ...]   stages: collide drop house marker pickup, or ghost alone (default: all)
 """
 import struct
 import sys
@@ -173,10 +173,41 @@ def stage_marker_only(e):
     print(f"  RESULT marker-only B: {'PASS' if ok else 'CHECK'} (stopped x={x:.2f}, expect 41.0..42.0 = blocked by the marker square (8,10), bed intact)")
 
 
+def stage_ghost(e):
+    """Hardware bug (2026-10-20): with the only furniture piece in view picked up, its second square kept a solid,
+    invisible 0xF031 (the coverage list went stale once nothing was drawn). Table (13,11) facing 1, marker (13,10):
+    pick it up from the left, then walk right along row 10 through the old marker square."""
+    x, z = walk_until(e, "down", 2, G(0, 11)[1] - 0.7, max_frames=300)
+    print(f"  row 11: x={x:.2f} z={z:.2f}")
+    x, z = walk_until(e, "right", 0, 44.3, max_frames=200)
+    print(f"  facing table anchor: x={x:.2f} z={z:.2f} (13,10)={grid_at(e, 9, 13, 10):#06x}")
+    e.press("b", hold=6, after=150)
+    print(f"  after B: (13,11)={grid_at(e, 9, 13, 11):#06x} (13,10)={grid_at(e, 9, 13, 10):#06x}")
+    walk_until(e, "left", 0, 43.5, max_frames=150)
+    x, z = walk_until(e, "up", 2, G(0, 10)[1] + 0.4, max_frames=150)
+    print(f"  row 10: x={x:.2f} z={z:.2f}")
+    x, z = walk_until(e, "right", 0, 47.0, max_frames=300)
+    e.shot("60_ghost_walk")
+    mk = grid_at(e, 9, 13, 10)
+    ok = x > 46.0 and 58.0 <= z < 59.0 and mk == 0xFFF1 and grid_at(e, 9, 13, 11) == 0xFFF1
+    print(f"  RESULT ghost square after pickup: {'PASS' if ok else 'FAIL'} (x={x:.2f} z={z:.2f}, expect x > 46 on row 10; (13,10)={mk:#06x}, expect fff1)")
+
+
+def ghost_main():
+    save = prepare_save(PROJECT / "build" / "test_furniture_ghost.sav",
+                        edits=dict(bells=50000), grid={tile_off(9, 13, 11): 0x3015})
+    with Emu(ROM_PLUS, str(save), tag="ftrg") as e:
+        e.boot_to_town()
+        e.wait(210)
+        stage_ghost(e)
+
+
 STAGES = {"marker": stage_marker_only, "pickup": stage_pickup, "collide": stage_collide, "drop": stage_drop, "house": stage_house}
 
 
 def main():
+    if sys.argv[1:] == ["ghost"]:
+        return ghost_main()
     for lx, lz, it in YARD:
         print(f"yard ({lx},{lz}) {it:#06x} footprint={footprint(it)}")
     save = prepare_save(PROJECT / "build" / "test_furniture.sav",
