@@ -1,20 +1,12 @@
 #!/usr/bin/env python3
 """
-Builds the AC:WW+ Outdoor Furniture ROM hack (e:/acww-plus/build/acww_plus.nds).
+Builds the AC:WW+ ROM (e:/acww-plus/build/acww_plus.nds).
 
-Steps:
-1. Compiles src/outdoor_furniture.c -> build/outdoor_furniture.o using Metrowerks mwccarm.exe.
-2. Parses the ELF32 relocatable object, places .text, .rodata, .data, and .bss at 0x01FFDC00
-   (offset 0x5C00 in ITCM, inside the 9,504-byte unused tail 0x01FFDAE0..0x02000000).
-3. Resolves all R_ARM_ABS32 and R_ARM_THM_CALL relocations.
-4. Copies clean vanilla binaries (arm9.bin, itcm.bin, ov003.bin) from E:/claudeGameDecomp/extracted,
-   appends the linked ITCM payload, updates itcm.yaml code_size, and patches the 4 Thumb BL hooks:
-   - Hook 1 (ov003 @ 0x022212C2): BL hook_ov003_draw_item + B 0x022212FA
-   - Hook 2 (ov003 @ 0x02220ADA): BL hook_ov003_teardown
-   - Hook 3 (arm9  @ 0x020B2A90): BL hook_ov003_item_shape (town_query_item_shape's call of ov003_item_shape)
-   - Hook 5 (arm9  @ 0x02042B7A): BL hook_field_put_spot_check
-   - Hook 4 (arm9  @ 0x02042DB4): BL hook_outdoor_drop_item
-5. Invokes dsd-windows-x86_64.exe rom build to produce build/acww_plus.nds.
+1. Compiles every src/*.c as one unit (build/acww_plus_unity.c) with Metrowerks mwccarm.exe.
+2. Links the ELF object at 0x01FFDC00 (unused ITCM tail) and writes build/payload.map.
+3. Copies fresh vanilla arm9/overlay binaries from E:/claudeGameDecomp/extracted (read only), appends the
+   payload to itcm.bin, and applies tools/patches.py (each patch checks the vanilla bytes first).
+4. Runs dsd rom build.
 """
 
 import os
@@ -25,9 +17,11 @@ import subprocess
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).parent))
+
 ROOT_DIR = Path(r"e:\acww-plus")
-SRC_C = ROOT_DIR / "src" / "outdoor_furniture.c"
-OBJ_O = ROOT_DIR / "build" / "outdoor_furniture.o"
+UNITY_C = ROOT_DIR / "build" / "acww_plus_unity.c"
+OBJ_O = ROOT_DIR / "build" / "acww_plus.o"
 PAYLOAD_BIN = ROOT_DIR / "build" / "payload_itcm.bin"
 EXTRACTED_DIR = ROOT_DIR / "build" / "extracted"
 OUT_ROM = ROOT_DIR / "build" / "acww_plus.nds"
@@ -66,13 +60,13 @@ def compile_c_source():
         "-proc", "arm946e",
         "-thumb",
         "-interworking",
-        "-c", str(SRC_C),
+        "-c", str(UNITY_C),
         "-o", str(OBJ_O),
     ]
     env = os.environ.copy()
     env["MWCIncludes"] = "."
     env["LM_LICENSE_FILE"] = str(MWCCARM_EXE.parents[2] / "license.dat")
-    print(f"[1/4] Compiling {SRC_C.name} with mwccarm.exe...")
+    print(f"[1/4] Compiling {UNITY_C.name} with mwccarm.exe...")
     res = subprocess.run(cmd, cwd=str(ROOT_DIR), env=env, capture_output=True, text=True)
     if res.returncode != 0:
         print(res.stdout)
@@ -203,7 +197,61 @@ def link_elf_object(obj_path: Path, base_addr: int):
     return bytes(image), sym_addrs, sections
 
 
+def module_info():
+    """{module: (vanilla path, extracted path, base address)} for arm9 and every overlay."""
+    mods = {"arm9": (VANILLA_EXTRACTED / "arm9" / "arm9.bin", EXTRACTED_DIR / "arm9" / "arm9.bin", ARM9_BASE_ADDR)}
+    y = (VANILLA_EXTRACTED / "arm9_overlays" / "overlays.yaml").read_text()
+    for blk in y.split("- id:")[1:]:
+        n = int(blk.split()[0])
+        base = int(re.search(r"base_address:\s*(\d+)", blk).group(1))
+        name = f"ov{n:03d}"
+        mods[name] = (VANILLA_EXTRACTED / "arm9_overlays" / f"{name}.bin",
+                      EXTRACTED_DIR / "arm9_overlays" / f"{name}.bin", base)
+    return mods
+
+
+def apply_patches(syms):
+    from patches import PATCHES
+    mods = module_info()
+    data = {}
+    for mod, addr, kind, expect, value, note in PATCHES:
+        if mod not in data:
+            data[mod] = bytearray(mods[mod][0].read_bytes())
+        buf, base = data[mod], mods[mod][2]
+        off = addr - base
+        exp = bytes.fromhex(expect)
+        if buf[off: off + len(exp)] != exp:
+            raise RuntimeError(f"{mod} 0x{addr:08X}: expected {expect}, found {buf[off:off+len(exp)].hex()} ({note})")
+        if kind == "bl":
+            if value not in syms:
+                raise RuntimeError(f"missing payload symbol {value}")
+            new = encode_thumb_bl(addr, syms[value])
+        elif kind == "ptr":
+            new = struct.pack("<I", syms[value] | 1)
+        elif kind == "bytes":
+            new = bytes.fromhex(value)
+        else:
+            raise ValueError(kind)
+        buf[off: off + len(new)] = new
+        print(f"      {mod:5s} 0x{addr:08X} {kind:5s} {value:30s} {note}")
+    # Every module starts from vanilla on each build; patched ones are then overwritten
+    for mod, (src, dst, _) in mods.items():
+        if mod in data:
+            dst.write_bytes(data[mod])
+        elif not dst.exists() or dst.read_bytes() != src.read_bytes():
+            shutil.copyfile(src, dst)
+
+
+def write_unity_source():
+    """All src/*.c compiled as one translation unit (one ELF for the tiny linker)."""
+    files = sorted(p for p in (ROOT_DIR / "src").glob("*.c"))
+    UNITY_C.write_text("".join(f'#include "{p.as_posix()}"' + chr(10) for p in files))
+    return files
+
+
 def main():
+    files = write_unity_source()
+    print(f"      Sources: {', '.join(p.name for p in files)}")
     compile_c_source()
 
     print(f"[2/4] Linking {OBJ_O.name} at ITCM 0x{PAYLOAD_BASE_ADDR:08X}...")
@@ -211,79 +259,24 @@ def main():
     PAYLOAD_BIN.write_bytes(payload)
     map_lines = [f"0x{a:08X} {n}" for n, a in sorted(syms.items(), key=lambda kv: kv[1])
                  if n and not n.startswith(("@", "."))]
-    (ROOT_DIR / "build" / "payload.map").write_text("\n".join(map_lines) + "\n")
+    (ROOT_DIR / "build" / "payload.map").write_text(chr(10).join(map_lines) + chr(10))
 
     end_addr = PAYLOAD_BASE_ADDR + len(payload)
-    print(f"      Payload size: {len(payload)} bytes (0x{PAYLOAD_BASE_ADDR:08X} .. 0x{end_addr:08X})")
+    print(f"      Payload size: {len(payload)} bytes (0x{PAYLOAD_BASE_ADDR:08X} .. 0x{end_addr:08X}), "
+          f"{ITCM_END_ADDR - end_addr} bytes of ITCM left")
     if end_addr > ITCM_END_ADDR:
         raise RuntimeError(f"Payload overflows ITCM end 0x{ITCM_END_ADDR:08X}!")
 
-    required_hooks = [
-        "hook_ov003_draw_item",
-        "hook_ov003_teardown",
-        "hook_ov003_item_shape",
-        "hook_outdoor_drop_item",
-        "hook_field_put_spot_check",
-    ]
-    for h in required_hooks:
-        if h not in syms:
-            raise RuntimeError(f"Missing required hook symbol: {h}")
-        print(f"      Symbol {h:30s} @ 0x{syms[h]:08X}")
-
-    print("[3/4] Patching extracted binaries (itcm.bin, itcm.yaml, ov003.bin, arm9.bin)...")
-
-    # 3a. Patch itcm.bin and itcm.yaml
+    print("[3/4] Patching binaries (fresh vanilla copies + tools/patches.py)...")
     vanilla_itcm = (VANILLA_EXTRACTED / "arm9" / "itcm.bin").read_bytes()
     if len(vanilla_itcm) > PAYLOAD_OFFSET_IN_ITCM:
         raise RuntimeError("Vanilla itcm.bin is larger than expected payload offset 0x5C00")
     padded_itcm = bytearray(vanilla_itcm) + bytearray(PAYLOAD_OFFSET_IN_ITCM - len(vanilla_itcm)) + bytearray(payload)
     (EXTRACTED_DIR / "arm9" / "itcm.bin").write_bytes(padded_itcm)
-
-    itcm_yaml_path = EXTRACTED_DIR / "arm9" / "itcm.yaml"
     itcm_yaml_txt = (VANILLA_EXTRACTED / "arm9" / "itcm.yaml").read_text(encoding="utf-8")
     itcm_yaml_txt = re.sub(r"code_size:\s*\d+", f"code_size: {len(padded_itcm)}", itcm_yaml_txt)
-    itcm_yaml_path.write_text(itcm_yaml_txt, encoding="utf-8")
-
-    # 3b. Patch ov003.bin
-    ov003_data = bytearray((VANILLA_EXTRACTED / "arm9_overlays" / "ov003.bin").read_bytes())
-
-    # Hook 1: ov003 @ 0x022212C0 (adds r0, r7, #0 at +0, BL hook_ov003_draw_item at +2, B 0x022212FA at +6)
-    h1_addr = 0x022212C0
-    h1_off = h1_addr - OV003_BASE_ADDR
-    assert ov003_data[h1_off : h1_off + 2] == bytes.fromhex("381c"), "Unexpected bytes at Hook 1"
-    ov003_data[h1_off + 2 : h1_off + 6] = encode_thumb_bl(h1_addr + 2, syms["hook_ov003_draw_item"])
-    ov003_data[h1_off + 6 : h1_off + 8] = bytes.fromhex("18e0")  # b #0x022212fa
-
-    # Hook 2: ov003 @ 0x02220ADA (replace BL 0x020454D4 with BL hook_ov003_teardown)
-    h2_addr = 0x02220ADA
-    h2_off = h2_addr - OV003_BASE_ADDR
-    assert ov003_data[h2_off : h2_off + 4] == bytes.fromhex("24f6fbfc"), "Unexpected bytes at Hook 2"
-    ov003_data[h2_off : h2_off + 4] = encode_thumb_bl(h2_addr, syms["hook_ov003_teardown"])
-
-    (EXTRACTED_DIR / "arm9_overlays" / "ov003.bin").write_bytes(ov003_data)
-
-    # 3c. Patch arm9.bin
-    arm9_data = bytearray((VANILLA_EXTRACTED / "arm9" / "arm9.bin").read_bytes())
-
-    # Hook 4: arm9 @ 0x02042DB4 (replace BL 0x02042DC4 with BL hook_outdoor_drop_item)
-    h4_addr = 0x02042DB4
-    h4_off = h4_addr - ARM9_BASE_ADDR
-    assert arm9_data[h4_off : h4_off + 4] == bytes.fromhex("00f006f8"), "Unexpected bytes at Hook 4"
-    arm9_data[h4_off : h4_off + 4] = encode_thumb_bl(h4_addr, syms["hook_outdoor_drop_item"])
-
-    # Hook 3: arm9 @ 0x020B2A90 (town_query_item_shape: BL ov003_item_shape -> hook_ov003_item_shape)
-    h3_addr = 0x020B2A90
-    h3_off = h3_addr - ARM9_BASE_ADDR
-    assert arm9_data[h3_off : h3_off + 4] == bytes.fromhex("70f162fd"), "Unexpected bytes at Hook 3"
-    arm9_data[h3_off : h3_off + 4] = encode_thumb_bl(h3_addr, syms["hook_ov003_item_shape"])
-
-    # Hook 5: arm9 @ 0x02042B7A (field_put_spot_find: BL field_put_spot_check -> hook_field_put_spot_check)
-    h5_addr = 0x02042B7A
-    h5_off = h5_addr - ARM9_BASE_ADDR
-    assert arm9_data[h5_off : h5_off + 4] == bytes.fromhex("00f04bf8"), "Unexpected bytes at Hook 5"
-    arm9_data[h5_off : h5_off + 4] = encode_thumb_bl(h5_addr, syms["hook_field_put_spot_check"])
-
-    (EXTRACTED_DIR / "arm9" / "arm9.bin").write_bytes(arm9_data)
+    (EXTRACTED_DIR / "arm9" / "itcm.yaml").write_text(itcm_yaml_txt, encoding="utf-8")
+    apply_patches(syms)
 
     print(f"[4/4] Building ROM {OUT_ROM}...")
     build_cmd = [
