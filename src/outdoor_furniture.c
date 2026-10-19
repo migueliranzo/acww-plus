@@ -119,6 +119,7 @@ typedef struct {
 
 static OutdoorFtrCache *s_cache;
 static u16 s_dropping_item; /* furniture id being dropped from the pockets (0 = none) */
+u32 g_ftr_dbg[4];           /* debug counters: shape calls, furniture hits, markers written, markers cleared */
 
 /* Collision cylinder for outdoor furniture: radius=0x0C, height=0x10, kind=0x06 */
 static const u8 s_furniture_shape[4] = { 0x0C, 0x10, 0x06, 0x00 };
@@ -195,6 +196,7 @@ static void ensure_markers(const u16 *anchor, int ux, int uz) {
         u16 *t = town_tile(ux + sq[0], uz + sq[1]);
         if (t != 0 && *t == ITEM_EMPTY) {
             *t = ITEM_FTR_COVERED;
+            g_ftr_dbg[2]++;
         }
     }
 }
@@ -737,8 +739,8 @@ void hook_ov003_teardown(void) {
 }
 
 /*
- * Hook 3: replaces ov003_item_shape (function pointer at ov003:0x022366E4).
- * Called for town units near moving actors; returns the collision cylinder of the item on (ux, uz).
+ * Hook 3: replaces town_query_item_shape's call of ov003_item_shape (arm9 0x020B2A90).
+ * Called by the walker collision gather (0x0203259c) for every unit in the walker's box; returns the collision cylinder of the item on (ux, uz).
  * Furniture and the squares it covers (0xF031) are solid. Missing markers are written, orphaned ones cleared.
  */
 int hook_ov003_item_shape(u32 unused, int *radius, int *height, u32 *kind, int ux, int uz) {
@@ -754,11 +756,22 @@ int hook_ov003_item_shape(u32 unused, int *radius, int *height, u32 *kind, int u
         return 0;
     }
     item = *item_ptr;
+    g_ftr_dbg[0]++;
     if (is_furniture_item(item)) {
+        g_ftr_dbg[1]++;
         ensure_markers(item_ptr, ux, uz);
+        shape = s_furniture_shape;
+    } else if (item == ITEM_EMPTY) {
+        /* A secondary square can be queried before its anchor: mark it as soon as it is seen */
+        if (!covered_by_neighbour(ux, uz)) {
+            return 0;
+        }
+        *item_ptr = ITEM_FTR_COVERED;
+        g_ftr_dbg[2]++;
         shape = s_furniture_shape;
     } else if (item == ITEM_FTR_COVERED) {
         if (!covered_by_neighbour(ux, uz)) {
+            g_ftr_dbg[3]++;
             *item_ptr = ITEM_EMPTY;
             return 0;
         }

@@ -66,30 +66,147 @@ def cache_state(e, label):
     return sc
 
 
+def where(e, label):
+    x, y, z, ang = player_pos(e)
+    print(f"  [{label}] player x={x/8192:.2f} z={z/8192:.2f} angle={ang:#06x} dbg={dbg(e)}")
+    return x / 8192, z / 8192
+
+
+def grid_at(e, acre, lx, lz):
+    return e.u16(GRID_RAM + acre * 512 + (lz * 16 + lx) * 2)
+
+
+# Global unit coordinates: acre 9 local (lx, lz) = global (32 + lx, 48 + lz); a unit's centre is +0.5.
+def G(lx, lz):
+    return 32 + lx + 0.5, 48 + lz + 0.5
+
+
+def stage_collide(e):
+    """Walk to row 10 (left of the table), then right into the table's secondary square (13,10)."""
+    where(e, "start")
+    x, z = walk_until(e, "down", 2, G(0, 10)[1]); print(f"  at x={x:.2f} z={z:.2f}")
+    x, z = walk_until(e, "right", 0, 47.0, max_frames=300)
+    print(f"  after walking right on row 10: x={x:.2f} z={z:.2f}")
+    e.shot("10_collide_secondary")
+    ok = 44.0 < x < 45.0   # square (13,10) spans x 45..46; stop expected before ~44.6
+    print(f"  RESULT secondary-square collision: {'PASS' if ok else 'FAIL'} (x={x:.2f}, expected 44.0..45.0)")
+    print(f"  orphan marker at (11,9) now {grid_at(e, 9, 11, 9):#06x} (expect fff1)")
+    dump_grid(e, 9, 6, 13)
+
+
+def stage_drop(e):
+    """Drop the classic bed (2x2, pocket slot 1) on open ground south of the house (acre 9 row 13)."""
+    x, z = walk_until(e, "down", 2, G(0, 13)[1]); print(f"  drop spot x={x:.2f} z={z:.2f}")
+    e.press("y", after=120)
+    e.shot("20_pockets")
+    e.press("right", after=60)
+    e.press("a", after=95)
+    e.press("down", after=40)
+    e.shot("21_drop_menu")
+    e.press("a", after=200)
+    e.press("y", after=120)
+    e.shot("22_after_drop")
+    walk_until(e, "left", 0, x - 1.0, max_frames=80)   # move so collision queries run around the bed
+    e.shot("23_after_nudge")
+    walk_until(e, "right", 0, x + 2.5, max_frames=150)
+    walk_until(e, "down", 2, z + 1.5, max_frames=100)
+    e.shot("24_view_bed")
+    print("  grid rows 11..16 after the drop:")
+    dump_grid(e, 9, 11, 16)
+    cache_state(e, "after drop")
+
+
+def stage_house(e):
+    """Enter the house from the doorstep, check the cache is gone, come back out."""
+    cache_state(e, "before house")
+    up = RELEASED & ~(1 << KEY_BITS["up"])
+    for _ in range(12):   # Up held onto the door pin, A every 25 vblanks (acww_enter_house.json)
+        e.c.cmd("keys", mask=up)
+        e.wait(22)
+        e.c.cmd("keys", mask=up & ~(1 << KEY_BITS["a"]))
+        e.wait(3)
+    e.c.cmd("keys", mask=RELEASED)
+    e.wait(400)
+    e.shot("30_in_house")
+    sc = cache_state(e, "in house")
+    print(f"  RESULT teardown: {'PASS' if sc == 0 else 'FAIL'} (s_cache={sc:#x})")
+    e.press("down", hold=120, after=500)
+    e.shot("31_back_outside")
+    e.wait(210)
+    e.shot("32_back_outside_settled")
+    cache_state(e, "back outside")
+
+
+def stage_pickup(e):
+    """Facing the table's marker square (13,10) from the left: B must not pick up the marker.
+    Then face the bench anchor (13,9) from below-left... and pick it up: markers must be cleaned up."""
+    stage_collide(e)
+    e.press("b", after=60)
+    e.shot("40_b_on_marker")
+    print(f"  after B on marker: (13,10)={grid_at(e, 9, 13, 10):#06x} table (13,11)={grid_at(e, 9, 13, 11):#06x}")
+    e.press("b", after=60)
+    e.press("a", after=60)
+    e.shot("41_a_on_marker")
+    print(f"  after A on marker: (13,10)={grid_at(e, 9, 13, 10):#06x}")
+    # Step down to row 11 and face right: the table anchor (13,11) is in front
+    walk_until(e, "down", 2, G(0, 11)[1], max_frames=60)
+    walk_until(e, "right", 0, 47.0, max_frames=60)
+    where(e, "facing table anchor")
+    e.press("b", after=90)
+    e.shot("42_b_on_anchor")
+    print(f"  after B on anchor: (13,11)={grid_at(e, 9, 13, 11):#06x} (13,10)={grid_at(e, 9, 13, 10):#06x}")
+    walk_until(e, "up", 2, G(0, 9)[1], max_frames=90)
+    print(f"  after walking past: (13,10)={grid_at(e, 9, 13, 10):#06x} (expect fff1 if the table was taken)")
+    dump_grid(e, 9, 8, 13)
+
+
+def stage_marker_only(e):
+    """Stand right of the 2x2 bed (7..8, 9..10) on row 10, facing its marker square (8,10); press B."""
+    walk_until(e, "down", 2, G(0, 10)[1] - 1.0)
+    walk_until(e, "left", 0, 40.0, max_frames=400)
+    x, z = where(e, "left of path, facing bed marker (8,10)")
+    e.press("b", after=90)
+    e.shot("50_b_marker_only")
+    print(f"  bed squares: (7,9)={grid_at(e, 9, 7, 9):#06x} (8,9)={grid_at(e, 9, 8, 9):#06x} "
+          f"(7,10)={grid_at(e, 9, 7, 10):#06x} (8,10)={grid_at(e, 9, 8, 10):#06x}")
+    ok = 41.5 < x < 42.0 and grid_at(e, 9, 8, 10) == 0xF031
+    print(f"  RESULT marker-only B: {'PASS' if ok else 'CHECK'} (stopped x={x:.2f}, expect ~41.6..41.9)")
+
+
+STAGES = {"marker": stage_marker_only, "pickup": stage_pickup, "collide": stage_collide, "drop": stage_drop, "house": stage_house}
+
+
 def main():
     for lx, lz, it in YARD:
         print(f"yard ({lx},{lz}) {it:#06x} footprint={footprint(it)}")
     save = prepare_save(PROJECT / "build" / "test_furniture.sav",
                         edits=dict(bells=50000, items=POCKETS),
-                        grid={tile_off(9, lx, lz): it for lx, lz, it in YARD})
+                        grid={**{tile_off(9, lx, lz): it for lx, lz, it in YARD}, tile_off(9, 11, 9): 0xF031})
     with Emu(ROM_PLUS, str(save), tag="ftr") as e:
         e.boot_to_town()
         e.wait(210)
         e.shot("01_yard")
         cache_state(e, "yard")
-        print("  grid acre 9 rows 6..12 after settle:")
-        dump_grid(e, 9, 6, 13)
-        # Walk down-left past the bed so collision queries reach its squares
-        return
-        e.press("down", hold=20, after=10)
-        e.press("left", hold=30, after=20)
-        e.shot("02_near_bed")
-        print("  grid after walking near the bed:")
-        dump_grid(e, 9, 6, 13)
-        e.press("left", hold=40, after=20)
-        e.shot("03_push_bed")
-        e.press("down", hold=60, after=30)
-        e.shot("04_south")
+        for name in (sys.argv[1:] or ["collide"]):
+            print(f"== stage {name}")
+            STAGES[name](e)
+
+
+def dbg(e):
+    a = payload_symbols()["g_ftr_dbg"]
+    return struct.unpack("<4I", e.read(a, 16))
+
+
+def walk_stage(e):
+    def where(label):
+        x, y, z, ang = player_pos(e)
+        print(f"  [{label}] player x={x/8192:.2f} z={z/8192:.2f} unit=({x>>13},{z>>13}) angle={ang:#06x} dbg={dbg(e)}")
+    where("start")
+    e.press("down", hold=90, after=10); where("after down")
+    e.press("left", hold=150, after=20); where("after left (row 10, towards bed square (8,10))")
+    e.shot("02_against_bed")
+    print("  grid after walking near the bed:")
+    dump_grid(e, 9, 6, 13)
 
 
 if __name__ == "__main__":

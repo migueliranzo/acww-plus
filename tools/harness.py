@@ -201,3 +201,54 @@ class Emu:
             elif act["kind"] == "wait":
                 self.wait(int(act["frames"]))
         return self.v()
+
+
+def player_actor(e):
+    idx = e.u32(e.u32(0x020CC0C8) + 0x68)
+    return e.u32(0x021D3F04 + 4 * idx) if idx < 4 else 0
+
+
+def player_pos(e):
+    """(x, y, z, angle) of the local player; x/z in fx32 world units (one town unit = 0x2000)."""
+    a = player_actor(e)
+    x, y, z = struct.unpack("<3i", e.read(a + 0x5C, 12))
+    ang = e.u16(a + 0x8E)
+    return x, y, z, ang
+
+
+def player_unit(e):
+    x, _, z, _ = player_pos(e)
+    return x >> 13, z >> 13
+
+
+def walk_until(e, key, axis, target, max_frames=600, step=4):
+    """Holds key until the player's x (axis 0) or z (axis 2) in units crosses target, or stops moving.
+    Returns the final (x, z) in units."""
+    keys = key if isinstance(key, (list, tuple)) else [key]
+    mask = RELEASED
+    for k in keys:
+        mask &= ~(1 << KEY_BITS[k])
+    start = player_pos(e)
+    sign = 1 if target > start[axis] / 8192 else -1
+    last = None
+    still = 0
+    e.c.cmd("keys", mask=mask)
+    try:
+        for _ in range(0, max_frames, step):
+            e.wait(step)
+            p = player_pos(e)
+            v = p[axis] / 8192
+            if (v - target) * sign >= 0:
+                break
+            if last is not None and abs(v - last) < 0.005:
+                still += 1
+                if still >= 8:   # blocked
+                    break
+            else:
+                still = 0
+            last = v
+    finally:
+        e.c.cmd("keys", mask=RELEASED)
+    e.wait(10)
+    p = player_pos(e)
+    return p[0] / 8192, p[2] / 8192

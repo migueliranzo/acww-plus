@@ -11,7 +11,8 @@ Steps:
    appends the linked ITCM payload, updates itcm.yaml code_size, and patches the 4 Thumb BL hooks:
    - Hook 1 (ov003 @ 0x022212C2): BL hook_ov003_draw_item + B 0x022212FA
    - Hook 2 (ov003 @ 0x02220ADA): BL hook_ov003_teardown
-   - Hook 3 (ov003 @ 0x02223586): BL hook_ov003_item_shape_lookup
+   - Hook 3 (arm9  @ 0x020B2A90): BL hook_ov003_item_shape (town_query_item_shape's call of ov003_item_shape)
+   - Hook 5 (arm9  @ 0x02042B7A): BL hook_field_put_spot_check
    - Hook 4 (arm9  @ 0x02042DB4): BL hook_outdoor_drop_item
 5. Invokes dsd-windows-x86_64.exe rom build to produce build/acww_plus.nds.
 """
@@ -259,12 +260,6 @@ def main():
     assert ov003_data[h2_off : h2_off + 4] == bytes.fromhex("24f6fbfc"), "Unexpected bytes at Hook 2"
     ov003_data[h2_off : h2_off + 4] = encode_thumb_bl(h2_addr, syms["hook_ov003_teardown"])
 
-    # Hook 3: ov003 data @ 0x022366E4: function pointer ov003_item_shape -> hook_ov003_item_shape
-    h3_addr = 0x022366E4
-    h3_off = h3_addr - OV003_BASE_ADDR
-    assert struct.unpack_from("<I", ov003_data, h3_off)[0] == 0x02223559, "Unexpected pointer at Hook 3"
-    struct.pack_into("<I", ov003_data, h3_off, syms["hook_ov003_item_shape"] | 1)
-
     (EXTRACTED_DIR / "arm9_overlays" / "ov003.bin").write_bytes(ov003_data)
 
     # 3c. Patch arm9.bin
@@ -275,6 +270,12 @@ def main():
     h4_off = h4_addr - ARM9_BASE_ADDR
     assert arm9_data[h4_off : h4_off + 4] == bytes.fromhex("00f006f8"), "Unexpected bytes at Hook 4"
     arm9_data[h4_off : h4_off + 4] = encode_thumb_bl(h4_addr, syms["hook_outdoor_drop_item"])
+
+    # Hook 3: arm9 @ 0x020B2A90 (town_query_item_shape: BL ov003_item_shape -> hook_ov003_item_shape)
+    h3_addr = 0x020B2A90
+    h3_off = h3_addr - ARM9_BASE_ADDR
+    assert arm9_data[h3_off : h3_off + 4] == bytes.fromhex("70f162fd"), "Unexpected bytes at Hook 3"
+    arm9_data[h3_off : h3_off + 4] = encode_thumb_bl(h3_addr, syms["hook_ov003_item_shape"])
 
     # Hook 5: arm9 @ 0x02042B7A (field_put_spot_find: BL field_put_spot_check -> hook_field_put_spot_check)
     h5_addr = 0x02042B7A
