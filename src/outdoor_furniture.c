@@ -63,7 +63,7 @@
 #define ITEM_FTR_COVERED            0xF031
 
 /* Budgets */
-#define MAX_FTR_SLOTS               12
+#define MAX_FTR_SLOTS               24
 #define NUM_ARENAS                  2
 #define TEX_ALIGN                   0x40     /* sub-allocation granule inside an arena */
 #define PLTT_SLOT_SIZE              0x80     /* every ftr palette is <= 0x80 bytes (ROM survey) */
@@ -497,6 +497,114 @@ static void wait_vblank_window(void) {
     }
 }
 
+#ifndef FTR_HALF_RES
+#define FTR_HALF_RES 1
+#endif
+
+#if FTR_HALF_RES
+/*
+ * Halves every texture of a TEX0 resource (2x nearest-neighbour, minimum 8 texels) and packs the texel data,
+ * so the model needs a quarter of the texture VRAM. The dictionary keeps the halved size in the TEXIMAGE param
+ * and in extraParam (orig width / height), which the model binding compares with the material's own size
+ * (origWidth / magW) to scale the texture coordinates.
+ */
+static void tex_halve(u8 *tex) {
+    u8 *dict = tex + *(u16 *)(tex + 0x0E);
+    u32 count = dict[1];
+    u8 *info = dict + *(u16 *)(dict + 6);
+    u32 esz = *(u16 *)info;
+    u8 *data = tex + *(u32 *)(tex + 0x14);
+    u32 wpos = 0;
+    u32 last = 0;
+    u32 done;
+    for (done = 0; done < count; done++) {
+        /* next texture in data order (texels are packed front to back, so reads stay ahead of writes) */
+        u32 i, best = 0xFFFFFFFF, bi = 0;
+        u32 *ent;
+        u32 p, off, ws, hs, fmt, bpp, w, h, nw, nh, x, y;
+        for (i = 0; i < count; i++) {
+            u32 o = (*(u32 *)(info + 4 + i * esz) & 0xFFFF) << 3;
+            if ((done == 0 || o > last) && o < best) {
+                best = o;
+                bi = i;
+            }
+        }
+        if (best == 0xFFFFFFFF) {
+            break;
+        }
+        last = best;
+        ent = (u32 *)(info + 4 + bi * esz);
+        p = ent[0];
+        off = (p & 0xFFFF) << 3;
+        ws = (p >> 20) & 7;
+        hs = (p >> 23) & 7;
+        fmt = (p >> 26) & 7;
+        bpp = fmt == 2 ? 2 : fmt == 3 ? 4 : (fmt == 1 || fmt == 4 || fmt == 6) ? 8 : 0;
+        w = 8u << ws;
+        h = 8u << hs;
+        if (bpp == 0 || (ws == 0 && hs == 0)) {
+            /* format kept as is: move it down unchanged */
+            u32 n = (w * h * (fmt == 7 ? 16 : 8)) >> 3, k;
+            if (fmt == 5) {
+                n = (w * h) >> 2;
+            }
+            for (k = 0; k < n; k++) {
+                data[wpos + k] = data[off + k];
+            }
+            ent[0] = (p & ~0xFFFF) | (wpos >> 3);
+            wpos += n;
+            continue;
+        }
+        nw = ws ? w >> 1 : w;
+        nh = hs ? h >> 1 : h;
+        for (y = 0; y < nh; y++) {
+            for (x = 0; x < nw; x++) {
+                u32 sx = ws ? x << 1 : x, sy = hs ? y << 1 : y;
+                u32 si = sy * w + sx, di = y * nw + x;
+                u32 v;
+                if (bpp == 8) {
+                    data[wpos + di] = data[off + si];
+                    continue;
+                }
+                if (bpp == 4) {
+                    v = (data[off + (si >> 1)] >> ((si & 1) << 2)) & 0xF;
+                    data[wpos + (di >> 1)] = (u8)((data[wpos + (di >> 1)] & ~(0xF << ((di & 1) << 2))) | (v << ((di & 1) << 2)));
+                } else {
+                    v = (data[off + (si >> 2)] >> ((si & 3) << 1)) & 3;
+                    data[wpos + (di >> 2)] = (u8)((data[wpos + (di >> 2)] & ~(3 << ((di & 3) << 1))) | (v << ((di & 3) << 1)));
+                }
+            }
+        }
+        ent[0] = (p & ~(0xFFFF | (7u << 20) | (7u << 23))) | (wpos >> 3) | ((ws ? ws - 1 : 0) << 20) | ((hs ? hs - 1 : 0) << 23);
+        ent[1] = (ent[1] & ~0x3FFFFF) | nw | (nh << 11);
+        wpos += (nw * nh * bpp) >> 3;
+        wpos = (wpos + 7) & ~7u;
+    }
+    *(u16 *)(tex + 0x0C) = (u16)(wpos >> 3);   /* sizeTex: what NNS_G3dTexGetRequiredSize reports and uploads */
+}
+
+/*
+ * After binding, materials whose texture is now smaller than authored have magW / magH != 1.0, but their texture
+ * coordinates are only scaled through the texture matrix: turn it on (TEXMTX_USE, texgen = texcoord source).
+ */
+static void mdl_enable_tex_mag(u8 *mdl) {
+    u8 *resmat = mdl + *(u32 *)(mdl + 8);
+    u8 *dict = resmat + 4;
+    u32 count = dict[1];
+    u8 *info = dict + *(u16 *)(dict + 6);
+    u32 esz = *(u16 *)info;
+    u32 i;
+    for (i = 0; i < count; i++) {
+        u8 *md = resmat + *(u32 *)(info + 4 + i * esz);
+        if (*(s32 *)(md + 0x24) != 0x1000 || *(s32 *)(md + 0x28) != 0x1000) {
+            *(u16 *)(md + 0x1E) |= 0x0001;         /* NNS_G3D_MATFLAG_TEXMTX_USE */
+            *(u32 *)(md + 0x14) |= 1u << 30;       /* TEXIMAGE texgen: texcoord source (uses the texture matrix) */
+            *(u32 *)(md + 0x18) |= 3u << 30;
+        }
+    }
+}
+#endif
+
 /* Loads model_id into a slot. Returns the slot index or -1. */
 static int load_model(OutdoorFtrCache *c, u16 model_id, u32 root_heap, u32 dist) {
     static const char s_arc_name[4] = { 'F', 'T', 'R', '\0' };
@@ -530,6 +638,9 @@ static int load_model(OutdoorFtrCache *c, u16 model_id, u32 root_heap, u32 dist)
         FN_HEAP_FREE(root_heap, btx_buf);
         return -1;
     }
+#if FTR_HALF_RES
+    tex_halve((u8 *)tex_res);
+#endif
     tex_sz = FN_NNS_G3D_TEX_REQ_SIZE(tex_res);
     idx = pick_slot(c, tex_sz, root_heap, dist);
     if (idx < 0) {
@@ -570,6 +681,9 @@ static int load_model(OutdoorFtrCache *c, u16 model_id, u32 root_heap, u32 dist)
     FN_TEX_UPLOAD_TO_SLOT(tex_res, slot->vram_slot);
     FN_MDL_OBJ_INIT(slot->mdl_obj);
     FN_MODEL_BIND(slot->mdl_obj, mdl_ptr, tex_res);
+#if FTR_HALF_RES
+    mdl_enable_tex_mag((u8 *)mdl_ptr);
+#endif
     slot->mdl_obj[0x60 / 4] = 0;
 
     /* The texture image and palette now live in VRAM; the .nsbtx buffer is no longer needed */
