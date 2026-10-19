@@ -30,8 +30,8 @@ Sources: `N3\ov004_classes.json`, `N3\work\h00.md`–`h02.md` (ov004 furniture c
 | **Sit on chairs / sofas / benches** | Port the eight sit actions (0x25–0x2C) plus the seat-side detection, rewrite their ov004 helper calls, redirect those action ids to our code while ov003 is loaded, place the player on the drum-bent ground at seat height, and get up cleanly when a scene change, a villager talk or a save interrupts. Beds (lie down, 0x08–0x0F) would be a second port of similar size. | ~4–6 KB | large (several sessions, a lot of emulator plus hardware testing) | high: player state machine, multiplayer sync of actions, saving while seated |
 
 ## Code space
-- The ITCM payload has **~860 bytes** left (after the 2026-10-20 ghost-square fix). Lamp glow fits; on/off probably
-  does not, alongside the placed/dropped work; sitting clearly needs a new code home.
+- The ITCM payload has **524 bytes** left (after the 2026-10-20 ghost fix and tree-drop leaves). Lamp glow just fits; on/off
+  does not fit; sitting clearly needs a new code home.
 - Most realistic new home: a **code file loaded into a root-heap block at boot** (NitroFS file + a small loader in
   the ITCM payload; position-independent or linked at the allocated address with a fixed heap reservation). It
   costs ~5 KB of heap for the session. The empty overlays (ov000, ov057–064, ov089) could carry the file, but they

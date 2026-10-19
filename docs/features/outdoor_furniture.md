@@ -1,9 +1,11 @@
 # Feature: furniture can be placed outdoors
 
-Status: **done** (verified headless on ndsref, 2026-10-19). Source: `src/outdoor_furniture.c`. Test: `tools/test_furniture.py [collide|drop|house|pickup|marker]`, or `ghost` alone.
+Status: **done** (verified headless on ndsref, 2026-10-19). Source: `src/outdoor_furniture.c`. Test: `tools/test_furniture.py [collide|drop|house|pickup|marker]`, or `ghost` / `treedrop` alone.
 
 ## What the player sees
 - Furniture dropped outdoors from the pockets ("Drop on Ground") is drawn as its real 3D model, not a leaf.
+- Furniture shaken out of a tree stays a leaf (vanilla look, not solid, no markers) until picked up. RAM only: after a
+  save and reload, an unpicked tree drop shows as 3D furniture (owner's choice, 2026-10-20).
   - It uses the town's curved-drum matrix and time-of-day lighting.
   - It faces the way the player faced when dropping it (4 directions).
 - Furniture is solid. Multi-square pieces block their whole footprint:
@@ -20,6 +22,7 @@ Status: **done** (verified headless on ndsref, 2026-10-19). Source: `src/outdoor
 | 3 | arm9 `0x020B2A90` (`town_query_item_shape` → `ov003_item_shape`) | Collision cylinders for furniture and 0xF031. Writes missing markers, clears orphaned ones. |
 | 4 | arm9 `0x02042DB4` (outdoor drop) | Puts the player's facing into `item & 3`. Flags a furniture drop in progress. |
 | 5 | arm9 `0x02042B7A` (`field_put_spot_find` → `field_put_spot_check`) | During a furniture drop, a spot passes only if every footprint square passes. |
+| 6 | arm9 `0x02044CEA` (`tree_shake_nonfruit_drop` → item-put request `0x020457B4`) | Remembers the square of tree-dropped furniture (`s_leaf`, 8 squares). Draw and collision treat those squares as vanilla. An entry is dropped once its square no longer holds furniture (checked each drawn frame and before every player drop). |
 
 - **Footprints** come from the game's own helper: `furniture_footprint_ctor/count/square` (`0x02052664/48/E8`). This is the same table the house rooms use.
   - Secondary squares hold **0xF031**, the house-room "second square of a furniture piece" id.

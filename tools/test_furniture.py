@@ -193,6 +193,61 @@ def stage_ghost(e):
     print(f"  RESULT ghost square after pickup: {'PASS' if ok else 'FAIL'} (x={x:.2f} z={z:.2f}, expect x > 46 on row 10; (13,10)={mk:#06x}, expect fff1)")
 
 
+def find_furniture(e, acre):
+    out = []
+    for lz in range(16):
+        for lx in range(16):
+            it = grid_at(e, acre, lx, lz)
+            if 0x3000 <= it < 0x4BA4:
+                out.append((lx, lz, it))
+    return out
+
+
+def treedrop_main():
+    """A furniture tree (id 0x66) two squares south of the door: shaking it drops furniture, which must stay a leaf
+    (no model load, no collision). Then the leaf is picked up and dropped again from the pockets: now it is 3D."""
+    tree = tile_off(9, 11, 9)
+    empty_pockets = {0xC + 0x1B22 + 2 * i: 0xFFF1 for i in range(15)}   # the leaf goes to slot 0
+    save = prepare_save(PROJECT / "build" / "test_furniture_tree.sav", edits=dict(bells=50000), grid={tree: 0x0066},
+                        pokes=empty_pockets)
+    with Emu(ROM_PLUS, str(save), tag="ftrt") as e:
+        e.boot_to_town()
+        e.wait(300)
+        x, z = walk_until(e, "down", 2, 58.0, max_frames=300)
+        print(f"  in front of the tree: x={x:.2f} z={z:.2f}")
+        before = find_furniture(e, 9)
+        e.press("a", hold=6, after=300)
+        drops = [d for d in find_furniture(e, 9) if d not in before]
+        loads = payload_symbols()["g_ftr_perf"]
+        n0 = e.u32(loads)
+        e.wait(120)
+        e.shot("70_tree_drop")
+        n1 = e.u32(loads)
+        print(f"  tree drop squares: {[(lx, lz, hex(it)) for lx, lz, it in drops]}, models loaded {n0} -> {n1}")
+        leaf = struct.unpack("<8H", e.read(payload_symbols()["s_leaf"], 16))
+        print(f"  s_leaf={leaf}")
+        ok = len(drops) == 1 and n1 == n0 == 0
+        print(f"  RESULT tree-dropped furniture stays a leaf: {'PASS' if ok else 'FAIL'} (drops={len(drops)}, loads {n0}->{n1}, expect 1 drop, 0 loads)")
+        walk_until(e, "left", 0, 42.8, max_frames=100)
+        walk_until(e, "down", 2, 56.75, max_frames=60)   # (10,8) facing down at the leaf (10,9)
+        where(e, "facing the leaf")
+        e.press("b", hold=6, after=150)
+        left = [d for d in find_furniture(e, 9) if d not in before]
+        print(f"  after B: furniture left from the drop {left}")
+        e.press("y", hold=6, after=120)
+        e.press("a", hold=6, after=95)
+        e.press("down", hold=6, after=40)
+        e.press("a", hold=6, after=200)
+        e.press("y", hold=6, after=120)
+        e.wait(150)
+        e.shot("71_dropped_by_player")
+        placed = [d for d in find_furniture(e, 9) if d not in before]
+        n2 = e.u32(loads)
+        print(f"  dropped from the pockets: {placed}, models loaded {n2}")
+        ok = not left and len(placed) == 1 and n2 >= 1
+        print(f"  RESULT same piece dropped by the player is 3D: {'PASS' if ok else 'FAIL'} (picked up={not left}, placed={len(placed)}, loads={n2})")
+
+
 def ghost_main():
     save = prepare_save(PROJECT / "build" / "test_furniture_ghost.sav",
                         edits=dict(bells=50000), grid={tile_off(9, 13, 11): 0x3015})
@@ -208,6 +263,8 @@ STAGES = {"marker": stage_marker_only, "pickup": stage_pickup, "collide": stage_
 def main():
     if sys.argv[1:] == ["ghost"]:
         return ghost_main()
+    if sys.argv[1:] == ["treedrop"]:
+        return treedrop_main()
     for lx, lz, it in YARD:
         print(f"yard ({lx},{lz}) {it:#06x} footprint={footprint(it)}")
     save = prepare_save(PROJECT / "build" / "test_furniture.sav",

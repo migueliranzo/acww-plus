@@ -18,6 +18,7 @@ PATCHES = [
     ("arm9", 0x020B2A90, "bl", "70f162fd", "hook_ov003_item_shape", "town_query_item_shape -> ov003_item_shape"),
     ("arm9", 0x02042DB4, "bl", "00f006f8", "hook_outdoor_drop_item", "outdoor drop -> func_02042dc4"),
     ("arm9", 0x02042B7A, "bl", "00f04bf8", "hook_field_put_spot_check", "field_put_spot_find -> spot check"),
+    ("arm9", 0x02044CEA, "bl", "00f063fd", "hook_tree_drop_item", "tree_shake_nonfruit_drop -> item put request"),
 
     # --- Feature 8: Nookington's without a visitor purchase ---
     # shop_visitor_sale_flag_test (only caller: shop_next_stage) -> movs r0,#1; bx lr

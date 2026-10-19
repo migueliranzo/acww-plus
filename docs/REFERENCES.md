@@ -76,7 +76,7 @@ Abbreviations: `RUNS` = `C:\NDS_RECOMP\prototype\runs`, `CGD` = `E:\claudeGameDe
 - Player's guide (game facts): `C:\NDS_RECOMP\acww-docs\`.
 
 ## Code space (our own notes)
-- Current payload: ITCM tail at `0x01FFDC00`, ~9 KB usable up to `0x02000000`. The payload is **8.2 KB**, with ~1 KB left (2026-10-19, after the furniture optimizations).
+- Current payload: ITCM tail at `0x01FFDC00`, ~9 KB usable up to `0x02000000`. The payload is **8.7 KB**, with ~0.5 KB left (2026-10-20: 524 bytes after the ghost fix and tree-drop leaves).
 - Ruled out as caves:
   - `unk_autoload_3`: it is the main BSS (`0x0213FAA0`, 0xC4280 bytes).
   - The gap after it: that is ov001's slot (`0x02203D20`).

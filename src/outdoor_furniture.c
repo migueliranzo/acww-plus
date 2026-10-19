@@ -29,6 +29,7 @@
 
 /* Thumb functions in main / ov003 (bit 0 = 1) */
 #define FN_OUTDOOR_DROP_HELPER      ((u32 (*)(u32 player, int kind, u32 item_id))(0x02042DC4 | 1))
+#define FN_FIELD_ITEM_PUT_REQ      ((u32 (*)(u32 player, int *unit_xz, u32 item, u32 expect, u32 a5, u32 a6, u32 a7, u32 a8, u32 a9, int a10))(0x020457B4 | 1))
 #define FN_FIELD_PUT_SPOT_CHECK     ((u16 *(*)(u32 kind, u32 map, int ux, int uz, int *from))(0x02042C14 | 1))
 #define FN_OV003_TEARDOWN_SUB       ((void (*)(void))(0x020454D4 | 1))
 #define FN_ITEM_ICON_ID             ((int (*)(const u16 *item_ptr))(0x0204BD5C | 1))
@@ -202,6 +203,36 @@ static void ensure_markers(const u16 *anchor, int ux, int uz) {
 }
 
 /*
+ * Furniture that fell out of a shaken tree stays a leaf (vanilla look, no collision): its square is remembered here
+ * (grid index + 1, 0 = free) until the square stops holding furniture. RAM only: after a save and reload an unpicked
+ * tree drop shows as 3D furniture.
+ */
+#define LEAF_MAX 8
+static u16 s_leaf[LEAF_MAX];
+static u8 s_leaf_next;
+
+static int leaf_has(const u16 *t) {
+    u32 idx = ((u32)((const u8 *)t - (const u8 *)TOWN_GRID_RAM) >> 1) + 1;
+    int i;
+    for (i = 0; i < LEAF_MAX; i++) {
+        if (s_leaf[i] == idx) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+/* Forgets squares that no longer hold furniture (the leaf was picked up). */
+static void leaf_purge(void) {
+    int i;
+    for (i = 0; i < LEAF_MAX; i++) {
+        if (s_leaf[i] != 0 && !is_furniture_item(((const u16 *)TOWN_GRID_RAM)[s_leaf[i] - 1])) {
+            s_leaf[i] = 0;
+        }
+    }
+}
+
+/*
  * Squares covered by multi-square pieces, collected by the draw hook (every furniture piece in view is drawn
  * each frame), double buffered per frame. The collision hook looks squares up here instead of searching the
  * 8 neighbours of every empty square it is asked about (that search cost ~10% of the ARM9 in town).
@@ -223,6 +254,7 @@ static void cover_frame(u32 ctx) {
         s_cover_cur ^= 1;
         s_cover_n[s_cover_cur] = 0;
         s_cover_valid = 1;
+        leaf_purge();
     }
 }
 
@@ -861,12 +893,16 @@ void hook_ov003_draw_item(u8 *r7_frame) {
 
     if (is_furniture_item(*item_ptr)) {
         cover_frame(ctx);
+        if (leaf_has(item_ptr)) {
+            goto icon;
+        }
         cover_add(item_ptr);
         if (draw_outdoor_furniture(ctx, item_ptr, mtx_src)) {
             return;
         }
     }
 
+icon:
     /* Vanilla icon path (equivalent to 0x022212C0..0x022212F6 + ov003_item_render) */
     icon_id = FN_ITEM_ICON_ID(item_ptr);
     *(u32 *)(r7_frame + 0x08) = (u32)icon_id;
@@ -922,7 +958,7 @@ int hook_ov003_item_shape(u32 unused, int *radius, int *height, u32 *kind, int u
     }
     item = *item_ptr;
     g_ftr_dbg[0]++;
-    if (is_furniture_item(item)) {
+    if (is_furniture_item(item) && !leaf_has(item_ptr)) {
         g_ftr_dbg[1]++;
         ensure_markers(item_ptr, ux, uz);
         shape = s_furniture_shape;
@@ -968,6 +1004,7 @@ u32 hook_outdoor_drop_item(u32 player_idx, int action_kind, u32 item_id) {
             id = (u16)((id & ~3) | facing);
         }
         s_dropping_item = id;
+        leaf_purge(); /* a leaf picked up from the target square must not turn this piece into a leaf */
     }
     ret = FN_OUTDOOR_DROP_HELPER(player_idx, action_kind, (u32)id);
     s_dropping_item = 0;
@@ -993,4 +1030,20 @@ u16 *hook_field_put_spot_check(u32 kind, u32 map, int ux, int uz, int *from) {
         }
     }
     return t;
+}
+
+/*
+ * Hook 6: tree_shake_nonfruit_drop's item-put request (arm9 0x02044CEA -> 0x020457B4).
+ * Furniture shaken out of a tree is remembered so it keeps the vanilla leaf look.
+ */
+u32 hook_tree_drop_item(u32 player, int *unit_xz, u32 item, u32 expect, u32 a5, u32 a6, u32 a7, u32 a8, u32 a9, int a10) {
+    if (is_furniture_item((u16)item)) {
+        u16 *t = town_tile(unit_xz[0], unit_xz[1]);
+        if (t != 0 && !leaf_has(t)) {
+            leaf_purge();
+            s_leaf[s_leaf_next] = (u16)((((const u8 *)t - (const u8 *)TOWN_GRID_RAM) >> 1) + 1);
+            s_leaf_next = (u8)((s_leaf_next + 1) & (LEAF_MAX - 1));
+        }
+    }
+    return FN_FIELD_ITEM_PUT_REQ(player, unit_xz, item, expect, a5, a6, a7, a8, a9, a10);
 }
