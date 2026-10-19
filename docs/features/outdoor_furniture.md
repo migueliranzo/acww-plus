@@ -27,17 +27,17 @@ Status: **done** (verified headless on ndsref, 2026-10-19). Source: `src/outdoor
   - Markers are written lazily by the collision hook, when the anchor or the secondary square is queried, so no drop-completion hook is needed.
   - An 0xF031 with no covering anchor (after a pickup) is reset to 0xFFF1 the first time anything walks near it.
 - **2×2 draw offset:** the model sits on the shared corner (+0x1000 x/z), as in `ov004_furniture_object_init`.
-- **Model cache** (heap object, at most 12 models):
+- **Model cache** (heap object, at most 24 models; textures halved before upload, texture matrix enabled so UVs scale):
   - After a 30-frame settle delay, two texture arenas are claimed from the frame VRAM manager. Each leaves 0x200 free per region; in town that is about 43 KB.
   - One 12×0x80 palette block is claimed too.
   - Textures are sub-allocated first-fit inside the arenas (0x40 granule).
-  - Eviction: least recently used among models not drawn this frame. If every model was drawn this frame, a model more than 2 squares farther from the player gives way to a nearer one.
+  - Eviction: least recently used among models drawn neither this frame nor the last; at most one load per frame. If everything is in view, a model more than 2 squares farther from the player gives way to a nearer one.
   - Uploads wait for VCOUNT 192..201, so texture VRAM is never remapped while the 3D engine reads it. This is a hardware-safety measure.
   - The heap's largest free block is checked first: at least 48 KB must be free before a load. This avoids the allocator's fatal path.
   - A refused model is not retried for 20 frames, so there are no per-frame cartridge reads.
 
 ## Limits / known behaviour
-- **Texture memory is the ceiling.** About 5 furniture models with full 8 KB textures can be shown at once (about 40% of furniture uses 8 KB; the median is 3 KB). Beyond that, the farthest pieces show as leaves until the player walks closer.
+- **Texture memory is the ceiling.** Outdoor textures are loaded at half resolution (`tex_halve`, 4× less VRAM), so about 20+ distinct models show at once; 21 were drawn in the 24-piece stress test, at 20 fps. Beyond that, the farthest pieces show as leaves until the player walks closer. Details: `docs/OPTIMIZATION_REPORT.md`.
 - Interaction (sit, lie down, lamps, radios) is not implemented outdoors. Optional per the brief, and it would need the ov004 actor classes.
 - Multiplayer: marker writes are local. Visitors see furniture as leaves unless they run the hack too.
 - Vanilla save compatibility: a hacked town loaded in vanilla shows furniture as leaves. Any 0xF031 squares stay inert, special-id squares that can't be picked up.

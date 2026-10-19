@@ -11,8 +11,10 @@ REC0 = 0x021DAA04
 
 def face_rgb(p):
     im = Image.open(p).convert("RGB")
-    px = [im.getpixel((x, y)) for x in range(126, 134) for y in range(272, 278)]
-    return tuple(sum(c[i] for c in px) // len(px) for i in range(3))
+    # skin-coloured pixels of the face (r > g > b, bright red channel) over the whole face area
+    px = [c for c in (im.getpixel((x, y)) for x in range(112, 148) for y in range(268, 296))
+          if c[0] > 120 and c[0] > c[1] > c[2]]
+    return tuple(sum(c[i] for c in px) // max(1, len(px)) for i in range(3))
 
 
 def main():
