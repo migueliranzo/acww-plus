@@ -64,7 +64,7 @@ def compile_c_source():
         "-o", str(OBJ_O),
     ]
     env = os.environ.copy()
-    env["MWCIncludes"] = "."
+    env["MWCIncludes"] = str(ROOT_DIR / "src")
     env["LM_LICENSE_FILE"] = str(MWCCARM_EXE.parents[2] / "license.dat")
     print(f"[1/4] Compiling {UNITY_C.name} with mwccarm.exe...")
     res = subprocess.run(cmd, cwd=str(ROOT_DIR), env=env, capture_output=True, text=True)

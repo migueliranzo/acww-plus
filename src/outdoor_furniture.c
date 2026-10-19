@@ -8,11 +8,7 @@
  * Secondary squares of multi-square pieces hold 0xF031, the same marker the game uses in house rooms.
  */
 
-typedef unsigned char      u8;
-typedef unsigned short     u16;
-typedef unsigned int       u32;
-typedef signed short       s16;
-typedef signed int         s32;
+#include "acww.h"
 
 /* --- Vanilla Engine Function Pointers (EU ADMP) --- */
 
@@ -50,7 +46,6 @@ typedef signed int         s32;
 #define FN_TEX_UPLOAD_TO_SLOT       ((u32 (*)(void *tex_res, void *vram_slot))(0x02055920 | 1))
 #define FN_FS_LOAD_DECOMPRESS       ((void *(*)(const char *path, u32 heap, int align, u32 *out_sz))(0x02064490 | 1))
 #define FN_LIGHT_SLOT2_TO_EMI       ((u16 (*)(void))(0x02064F68 | 1))
-#define FN_GET_PLAYER_ACTOR         ((u32 (*)(int idx))(0x02095550 | 1))
 #define FN_OV003_SHAPE_LOOKUP_ORIG  ((const u8 *(*)(const u16 *item_ptr))(0x022235BC | 1))
 
 /* Global Engine Addresses */
@@ -65,7 +60,6 @@ typedef signed int         s32;
 /* Item ids */
 #define FTR_ITEM_MIN                0x3000
 #define FTR_ITEM_MAX_EXCL           0x4BA4
-#define ITEM_EMPTY                  0xFFF1
 #define ITEM_FTR_COVERED            0xF031
 
 /* Budgets */

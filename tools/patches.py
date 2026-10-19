@@ -31,4 +31,10 @@ PATCHES = [
     ("arm9", 0x020CF6CD, "bytes", "02", "00", "Tammi (species 0x93) class 2 -> 0"),
     ("arm9", 0x020CF71B, "bytes", "02", "00", "Monty (species 0x94) class 2 -> 0"),
     ("arm9", 0x020CF769, "bytes", "02", "00", "Elise (species 0x95) class 2 -> 0"),
+
+    # --- Feature 6: tools swapped / put away with L/R (src/tool_swap.c) ---
+    # Action 2 (stand) tick: rodata pair {fn, 0} copied into the action tick table by func_02005368.
+    ("arm9", 0x020D65A4, "ptr", "69cc0002", "hook_player_stand_tick", "stand tick -> tool swap poll"),
+    ("arm9", 0x020D6804, "ptr", "d9c30002", "hook_player_action05_tick", "action 5 (item-selected pose) tick -> back to stand after an L/R equip"),
+    ("arm9", 0x020D6634, "ptr", "39950002", "hook_player_action3f_tick", "action 0x3F (equip) tick -> buffer L/R taps"),
 ]
