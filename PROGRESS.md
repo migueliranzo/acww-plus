@@ -14,6 +14,22 @@ Build: `py -3.12 tools/build_rom.py` → `build/acww_plus.nds`. Headless tests: 
 | 7 | Monkeys (Champ, Nana, Simon, Tammi, Monty, Elise) obtainable | **done** (untested in play) | `docs/features/monkeys.md` |
 | 8 | Nookington's without multiplayer | **done** (untested in play) | `docs/features/nookingtons.md` |
 
+## Overnight summary (2026-10-19)
+- All 8 features are implemented and committed. The full headless suite `tools/run_all_tests.py` passes 18/18 on the final ROM.
+- **Please check by hand:**
+  1. **Pattern editor (Able Sisters):** L/R should cycle … 15 → transparent → 1. Paint some transparent pixels, then lay the design on the ground.
+  2. **Net + bugs on a tree (summer):** the net should still swing at a bug on the trunk. A tree with no bug nearby should shake.
+  3. **Walked-upstairs phone (not the wake-up screen):** the menu should be Set sound / Change my look / Downloads / Nothing.
+  4. **Change my look:** watch the shoes and socks change while standing on the phone (live refresh). Only the wake-up screen was tested, where the feet are under the covers.
+  5. **Monkeys and Nookington's:** the play tests you planned.
+  6. **Real hardware:** furniture model uploads wait for VBlank, and the body and palette refreshes go through the game's VBlank queue. A flashcart run is still the real proof.
+- **Known limits:**
+  - About 5 large-texture furniture models can show at once. Farther pieces show leaves until you walk closer.
+  - Outdoor furniture can't be interacted with (no sitting).
+  - New text is English in all languages.
+- **Code space:** the ITCM payload is 6.6 KB, with about 2.5 KB free. `docs/REFERENCES.md` lists the next places to look for more.
+- **Save use:** PostOffice pad (skin base tone) and PlayerTasks pad +0x1DD9 (shoe and sock colours). Both are 0 in vanilla saves.
+
 ## Log
 - 2026-10-19:
   - Set up git.
