@@ -1,12 +1,16 @@
 # Feature: furniture can be placed outdoors
 
-Status: **done** (verified headless on ndsref, 2026-10-19). Source: `src/outdoor_furniture.c`. Test: `tools/test_furniture.py [collide|drop|house|pickup|marker]`, or `ghost` / `treedrop` / `lamp` alone.
+Status: **done** (verified headless on ndsref, 2026-10-19). Source: `src/outdoor_furniture.c`. Test: `tools/test_furniture.py [collide|drop|house|pickup|marker]`, or `ghost` / `treedrop` / `lamp` / `lampuse` alone.
 
 ## What the player sees
 - Furniture dropped outdoors from the pockets ("Drop on Ground") is drawn as its real 3D model, not a leaf.
 - Lamps and candles (the 17 light-source models of `ftr_info/indoor.bin`, byte 1 bits 4/5) glow warm white from
   18:00 to 06:00: their whole model gets emission 0x4B9F instead of the town's time-of-day emission. They don't light
   the ground (the DS has no point lights). Evidence: `ftrl_80_lamp_night`.
+- **A with empty hands, facing a lamp,** switches it off (at night) or on (by day). The switch is kept per square
+  in RAM (8 lamps) until the lamp is picked up; after a save and reload every lamp follows the clock again. No
+  sound: the indoor lamp switch sounds (0x498 / 0x499) froze the game when played in town, presumably because
+  their sound bank isn't loaded there. Evidence: `ftru_81` / `ftru_82`.
 - Furniture shaken out of a tree stays a leaf (vanilla look, not solid, no markers) until picked up. RAM only: after a
   save and reload, an unpicked tree drop shows as 3D furniture (owner's choice, 2026-10-20).
   - It uses the town's curved-drum matrix and time-of-day lighting.
@@ -26,6 +30,7 @@ Status: **done** (verified headless on ndsref, 2026-10-19). Source: `src/outdoor
 | 4 | arm9 `0x02042DB4` (outdoor drop) | Puts the player's facing into `item & 3`. Flags a furniture drop in progress. |
 | 5 | arm9 `0x02042B7A` (`field_put_spot_find` → `field_put_spot_check`) | During a furniture drop, a spot passes only if every footprint square passes. |
 | 6 | arm9 `0x02044CEA` (`tree_shake_nonfruit_drop` → item-put request `0x020457B4`) | Remembers the square of tree-dropped furniture (`s_leaf`, 8 squares). Draw and collision treat those squares as vanilla. An entry is dropped once its square no longer holds furniture (checked each drawn frame and before every player drop). |
+| 7 | arm9 `0x0200FAF0` (`player_act_on_target_dispatch` → ov003 A handler, every logic frame) | On an A press (KEYINPUT edge) with empty hands, a lamp in front is switched instead of the vanilla handler. |
 
 - **Footprints** come from the game's own helper: `furniture_footprint_ctor/count/square` (`0x02052664/48/E8`). This is the same table the house rooms use.
   - Secondary squares hold **0xF031**, the house-room "second square of a furniture piece" id.
@@ -48,6 +53,11 @@ Status: **done** (verified headless on ndsref, 2026-10-19). Source: `src/outdoor
     - Before 2026-10-19 the draw loop uploaded directly, after a VCOUNT busy-wait, with no cache flush. A beach table placed outdoors froze a real DS (flashcart); melonDS doesn't model the cache or DMA timing, so it never reproduced there.
   - The heap's largest free block is checked first: at least 48 KB must be free before a load. This avoids the allocator's fatal path.
   - A refused model is not retried for 20 frames, so there are no per-frame cartridge reads.
+
+- **Draw-loop cell:** the draw hook looks up the square's grid cell from the loop's position (`r7 + 0x9C`), the
+  way the loop itself does. The pointer at `r7 + 0x90` reads the right item but isn't reliably that cell's
+  address (seen +1 and +10 bytes off), and the leaf, lamp and coverage lists are keyed by cell. Found 2026-10-20
+  while testing lamp switching.
 
 ## Limits / known behaviour
 - **Texture memory is the ceiling.** Outdoor textures are loaded at half resolution (`tex_halve`, 4× less VRAM), so about 20+ distinct models show at once; 21 were drawn in the 24-piece stress test, at 20 fps. Beyond that, the farthest pieces show as leaves until the player walks closer. Details: `docs/OPTIMIZATION_REPORT.md`.

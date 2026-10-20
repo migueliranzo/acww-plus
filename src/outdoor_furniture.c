@@ -27,13 +27,8 @@ static const u16 s_light_models[17] = {
 };
 #define LAMP_NIGHT_EMI              0x4B9F   /* warm white (RGB555 31,28,18) */
 
-/* Lamps glow from 18:00 to 06:00 (the hours the town's own lights are on). */
-static int lamp_glows(u16 model_id) {
-    u32 h = *GAME_HOUR_ADDR;
+static int is_light_model(u16 model_id) {
     int i;
-    if (h >= 6 && h < 18) {
-        return 0;
-    }
     for (i = 0; i < 17; i++) {
         if (s_light_models[i] == model_id) {
             return 1;
@@ -128,23 +123,54 @@ static void ensure_markers(const u16 *anchor, int ux, int uz) {
 static u16 s_leaf[LEAF_MAX];
 static u8 s_leaf_next;
 
+static int grid_list_find(const u16 *list, int n, const u16 *t);
+
 static int leaf_has(const u16 *t) {
-    u32 idx = ((u32)((const u8 *)t - (const u8 *)TOWN_GRID_RAM) >> 1) + 1;
-    int i;
-    for (i = 0; i < LEAF_MAX; i++) {
-        if (s_leaf[i] == idx) {
-            return 1;
-        }
-    }
-    return 0;
+    return grid_list_find(s_leaf, LEAF_MAX, t) >= 0;
 }
 
-/* Forgets squares that no longer hold furniture (the leaf was picked up). */
+/* Lamps switched with A (grid index + 1, 0 = free): their glow is the opposite of the time-of-day default.
+ * RAM only, like the leaves; dropped once the square no longer holds a light. */
+#define LAMP_TOG_MAX 8
+static u16 s_lamp_tog[LAMP_TOG_MAX];
+
+static int grid_list_find(const u16 *list, int n, const u16 *t) {
+    u32 idx = ((u32)((const u8 *)t - (const u8 *)TOWN_GRID_RAM) >> 1) + 1;
+    int i;
+    for (i = 0; i < n; i++) {
+        if (list[i] == idx) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+/* Lamps glow from 18:00 to 06:00 (the hours the town's own lights are on), unless switched with A. */
+static int lamp_glows(u16 model_id, const u16 *t) {
+    u32 h = *GAME_HOUR_ADDR;
+    int on = h < 6 || h >= 18;
+    if (!is_light_model(model_id)) {
+        return 0;
+    }
+    return grid_list_find(s_lamp_tog, LAMP_TOG_MAX, t) >= 0 ? !on : on;
+}
+
+/* Forgets leaves picked up and switched lamps taken away. */
 static void leaf_purge(void) {
     int i;
     for (i = 0; i < LEAF_MAX; i++) {
         if (s_leaf[i] != 0 && !is_furniture_item(((const u16 *)TOWN_GRID_RAM)[s_leaf[i] - 1])) {
             s_leaf[i] = 0;
+        }
+    }
+    for (i = 0; i < LAMP_TOG_MAX; i++) {
+        u16 it;
+        if (s_lamp_tog[i] == 0) {
+            continue;
+        }
+        it = ((const u16 *)TOWN_GRID_RAM)[s_lamp_tog[i] - 1];
+        if (!is_furniture_item(it) || !is_light_model((u16)((it - FTR_ITEM_MIN) >> 2))) {
+            s_lamp_tog[i] = 0;
         }
     }
 }
@@ -383,7 +409,7 @@ static int draw_outdoor_furniture(u32 ctx, const u16 *item_ptr, const u32 *mtx_s
         FN_MTX_ROTATE_Y_MODEL(mtx_dst, facing << 14);
     }
 
-    emi = lamp_glows(model_id) ? LAMP_NIGHT_EMI : FN_LIGHT_SLOT2_TO_EMI();
+    emi = lamp_glows(model_id, item_ptr) ? LAMP_NIGHT_EMI : FN_LIGHT_SLOT2_TO_EMI();
     FN_NNS_G3D_SET_EMI_ALL(slot->mdl_ptr, emi);
     FN_MDL_OBJ_DRAW(slot->mdl_obj, 0);
     return 1;
@@ -406,12 +432,22 @@ void hook_ov003_draw_item(u8 *r7_frame) {
     int i;
 
     if (is_furniture_item(*item_ptr)) {
-        cover_frame(ctx);
-        if (leaf_has(item_ptr)) {
+        /* The square's grid cell, looked up from the loop's position (r7 + 0x9C) like the loop itself does:
+         * the pointer at r7 + 0x90 reads the right item but is not reliably that cell's address (seen +1 and
+         * +10 bytes off), and the leaf, lamp and coverage lists are keyed by cell. */
+        int ux, uz;
+        u16 *cell;
+        FN_POS_TO_UNIT_XZ(&ux, &uz, r7_frame + 0x9C);
+        cell = town_tile(ux, uz);
+        if (cell == 0 || *cell != *item_ptr) {
             goto icon;
         }
-        cover_add(item_ptr);
-        if (draw_outdoor_furniture(ctx, item_ptr, mtx_src)) {
+        cover_frame(ctx);
+        if (leaf_has(cell)) {
+            goto icon;
+        }
+        cover_add(cell);
+        if (draw_outdoor_furniture(ctx, cell, mtx_src)) {
             return;
         }
     }
@@ -562,3 +598,46 @@ u32 hook_tree_drop_item(u32 player, int *unit_xz, u32 item, u32 expect, u32 a5, 
     return FN_FIELD_ITEM_PUT_REQ(player, unit_xz, item, expect, a5, a6, a7, a8, a9, a10);
 }
 
+/*
+ * With empty hands, A switches a lamp on the square the player faces on or off. Returns 1 when A was used for a
+ * lamp.
+ */
+static int ftr_lamp_use(u32 player) {
+    static const s8 s_dir[4][2] = { { 0, 1 }, { 1, 0 }, { 0, -1 }, { -1, 0 } };   /* facing down, right, up, left */
+    u32 d = ((u32)(*(volatile u16 *)(player + 0x8E) + 0x2000) >> 14) & 3;
+    int ux, uz, i;
+    u16 *t;
+    FN_POS_TO_UNIT_XZ(&ux, &uz, (const void *)(player + 0x5C));
+    t = town_tile(ux + s_dir[d][0], uz + s_dir[d][1]);
+    if (t == 0 || !is_furniture_item(*t) || leaf_has(t) || !is_light_model((u16)((*t - FTR_ITEM_MIN) >> 2))) {
+        return 0;
+    }
+    i = grid_list_find(s_lamp_tog, LAMP_TOG_MAX, t);
+    if (i >= 0) {
+        s_lamp_tog[i] = 0;
+    } else {
+        for (i = LAMP_TOG_MAX - 1; i > 0 && s_lamp_tog[i] != 0; i--) {
+            /* a free entry, else the first one is reused */
+        }
+        s_lamp_tog[i] = (u16)((((const u8 *)t - (const u8 *)TOWN_GRID_RAM) >> 1) + 1);
+    }
+    /* No sound: the indoor lamp class's switch sounds (0x498 / 0x499) froze the game when played outdoors
+     * (their sound bank is not loaded in town). */
+    return 1;
+}
+
+/*
+ * Hook 7: player_act_on_target_dispatch's outdoor call of the A-button handler (arm9 0x0200FAF0 ->
+ * func_ov003_022085dc), run every logic frame. On an A press with empty hands, a lamp in front comes first.
+ */
+int hook_ov003_act_on_target(u32 player) {
+    static u8 s_a_prev;
+    u32 a = (*REG_KEYINPUT & 1) == 0;
+    u32 rec = PLAYER_REC_BASE + PLAYER_REC_SIZE * *(volatile u32 *)(*(volatile u32 *)PLAYER_IDX_PTR + 0x68);
+    u32 edge = a && !s_a_prev;
+    s_a_prev = (u8)a;
+    if (edge && *(volatile u16 *)(rec + PLAYER_REC_HAND) == ITEM_EMPTY && ftr_lamp_use(player)) {
+        return 1;
+    }
+    return FN_OV003_ACT_ON_TARGET(player);
+}

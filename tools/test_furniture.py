@@ -286,6 +286,44 @@ def lamp_main():
         print(f"  RESULT lamp glows at night, bench does not: {'PASS' if ok else 'FAIL'} (hour={hour}, lamp={emis.get(7)}, bench={emis.get(3)})")
 
 
+def model_emis(e):
+    sc = e.u32(payload_symbols()["s_cache"])
+    emis = {}
+    for i in range(24):
+        b = e.read(sc + 72 + i * 232, 24)
+        mid = struct.unpack_from("<H", b)[0]
+        mdl = struct.unpack_from("<I", b, 20)[0]
+        if mid != 0xFFFF and mdl:
+            emis[mid] = material_emi(e, mdl)
+    return emis
+
+
+def lampuse_main():
+    """Exotic lamp two squares south of the door at 21:00. Walk down against it, A switches it off (no warm
+    emission), A again switches it back on; the game keeps running (a switch sound once froze it)."""
+    save = prepare_save(PROJECT / "build" / "test_furniture_lampuse.sav", edits=dict(bells=50000),
+                        grid={tile_off(9, 11, 9): 0x301C}, pokes={0x15FB4: struct.pack("<i", 9 * 60)})
+    with Emu(ROM_PLUS, str(save), tag="ftru") as e:
+        e.boot_to_town()
+        e.wait(300)
+        x, z = walk_until(e, "down", 2, 58.0, max_frames=300)
+        print(f"  facing the lamp: x={x:.2f} z={z:.2f}")
+        on0 = model_emis(e).get(7)
+        e.press("a", hold=6, after=60)
+        off = model_emis(e).get(7)
+        g0 = e.u32(0x021F7E10)
+        e.wait(60)
+        alive = e.u32(0x021F7E10) - g0
+        e.shot("81_lamp_switched_off")
+        e.press("a", hold=6, after=60)
+        on1 = model_emis(e).get(7)
+        e.shot("82_lamp_switched_on")
+        print(f"  lamp emission: start={on0} after A={off} after A again={on1} (warm = {0x4B9F}); "
+              f"game frames in 60 vblanks after the first A: {alive}")
+        ok = on0 == 0x4B9F and off is not None and off != 0x4B9F and on1 == 0x4B9F and alive > 10
+        print(f"  RESULT A switches a lamp off and on: {'PASS' if ok else 'FAIL'}")
+
+
 def ghost_main():
     save = prepare_save(PROJECT / "build" / "test_furniture_ghost.sav",
                         edits=dict(bells=50000), grid={tile_off(9, 13, 11): 0x3015})
@@ -301,6 +339,8 @@ STAGES = {"marker": stage_marker_only, "pickup": stage_pickup, "collide": stage_
 def main():
     if sys.argv[1:] == ["ghost"]:
         return ghost_main()
+    if sys.argv[1:] == ["lampuse"]:
+        return lampuse_main()
     if sys.argv[1:] == ["lamp"]:
         return lamp_main()
     if sys.argv[1:] == ["treedrop"]:

@@ -47,9 +47,15 @@
 #define FN_VRAM_REQ_CTOR            ((void *(*)(void *req))(0x020B8FF4 | 1))
 #define FN_FS_LOAD_DECOMPRESS       ((void *(*)(const char *path, u32 heap, int align, u32 *out_sz))(0x02064490 | 1))
 #define FN_LIGHT_SLOT2_TO_EMI       ((u16 (*)(void))(0x02064F68 | 1))
+#define FN_OV003_ACT_ON_TARGET      ((int (*)(u32 actor))(0x022085DC | 1))
 #define FN_OV003_SHAPE_LOOKUP_ORIG  ((const u8 *(*)(const u16 *item_ptr))(0x022235BC | 1))
 
 /* Global Engine Addresses */
+#define REG_KEYINPUT                ((volatile u16 *)0x04000130)  /* active low, bit 0 = A */
+#define PLAYER_IDX_PTR              0x020CC0C8   /* -> +0x68 local player index */
+#define PLAYER_REC_BASE             0x021DAA04   /* save RAM + 0xC: player records */
+#define PLAYER_REC_SIZE             0x228C
+#define PLAYER_REC_HAND             0x220A       /* u16 held item, 0xFFF1 = empty */
 #define ROOT_HEAP_PTR_ADDR          ((volatile u32 *)0x021F7ECC)
 #define TOWN_MAP_PTR_ADDR           ((volatile u32 *)0x021C7BA4)
 #define TOWN_GRID_RAM               0x021E6D4C   /* 16 acres x 16x16 u16 (save 0xC354), acre-major */
