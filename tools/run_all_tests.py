@@ -14,6 +14,7 @@ TESTS = [
     ["test_furniture.py", "ghost"],
     ["test_furniture.py", "treedrop"],
     ["test_furniture.py", "lamp"],
+    ["test_code_home.py"],
     ["test_tool_swap.py"],
     ["test_tree_shake.py"],
     ["test_skin_tone.py"],

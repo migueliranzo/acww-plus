@@ -52,7 +52,9 @@ def encode_thumb_bl(src_addr: int, target_addr: int) -> bytes:
     return struct.pack("<HH", hw1, hw2)
 
 
-def compile_c_source():
+def compile_c_source(unity=None, obj=None):
+    unity = unity or UNITY_C
+    obj = obj or OBJ_O
     cmd = [
         str(MWCCARM_EXE),
         "-O4,s",
@@ -60,13 +62,13 @@ def compile_c_source():
         "-proc", "arm946e",
         "-thumb",
         "-interworking",
-        "-c", str(UNITY_C),
-        "-o", str(OBJ_O),
+        "-c", str(unity),
+        "-o", str(obj),
     ]
     env = os.environ.copy()
     env["MWCIncludes"] = str(ROOT_DIR / "src")
     env["LM_LICENSE_FILE"] = str(MWCCARM_EXE.parents[2] / "license.dat")
-    print(f"[1/4] Compiling {UNITY_C.name} with mwccarm.exe...")
+    print(f"[1/4] Compiling {unity.name} with mwccarm.exe...")
     res = subprocess.run(cmd, cwd=str(ROOT_DIR), env=env, capture_output=True, text=True)
     if res.returncode != 0:
         print(res.stdout)
@@ -74,7 +76,9 @@ def compile_c_source():
         sys.exit(res.returncode)
 
 
-def link_elf_object(obj_path: Path, base_addr: int):
+def link_elf_object(obj_path: Path, base_addr: int, externs=None, relocs_out=None):
+    """externs: {name: address} for symbols defined outside the object (heap code -> ITCM payload).
+    relocs_out: list that receives the image offsets of ABS32 words pointing inside the image (heap code)."""
     data = obj_path.read_bytes()
     if data[:4] != b"\x7fELF":
         raise ValueError("Not a valid ELF file")
@@ -147,8 +151,11 @@ def link_elf_object(obj_path: Path, base_addr: int):
         if 0 < st_shndx < len(sections) and "vaddr" in sections[st_shndx]:
             vaddr += sections[st_shndx]["vaddr"]
         elif st_shndx == 0 and i > 0:
-            raise ValueError(f"Undefined external symbol in object: {name}")
-        symbols.append({"name": name, "vaddr": vaddr, "info": st_info, "shndx": st_shndx, "size": st_size})
+            if externs is None or name not in externs:
+                raise ValueError(f"Undefined external symbol in object: {name}")
+            vaddr = externs[name]
+        symbols.append({"name": name, "vaddr": vaddr, "info": st_info, "shndx": st_shndx, "size": st_size,
+                        "external": st_shndx == 0 and i > 0})
         if name:
             sym_addrs[name] = vaddr
 
@@ -180,6 +187,10 @@ def link_elf_object(obj_path: Path, base_addr: int):
                 addend = r_addend if is_rela else struct.unpack_from("<i", t_buf, r_offset)[0]
                 val = (S + addend) & 0xFFFFFFFF
                 struct.pack_into("<I", t_buf, r_offset, val)
+                if relocs_out is not None and not sym["external"] and sym["shndx"] != 0xFFF1:   # SHN_ABS stays
+                    relocs_out.append(P - base_addr)
+            elif r_type == 10 and relocs_out is not None and sym["external"]:
+                raise ValueError(f"heap code: direct call to {sym['name']} outside the image (call it through a pointer)")
             elif r_type == 10:  # R_ARM_THM_CALL
                 # Metrowerks RELA uses r_addend = -4 for Thumb BL
                 bl_bytes = encode_thumb_bl(P, S)
@@ -272,6 +283,38 @@ def write_unity_source():
     return files
 
 
+HEAP_UNITY_C = ROOT_DIR / "build" / "acww_heap_unity.c"
+HEAP_OBJ_O = ROOT_DIR / "build" / "acww_heap.o"
+HEAP_FILE_REL = Path("zplus") / "code.bin"
+# Export order = the HX_* slots in src/code_home.h
+HX_EXPORTS = ["hx_claim_vram", "hx_can_place", "hx_load_model"]
+
+
+def build_heap_code(itcm_syms):
+    """src/heap/*.c -> files/zplus/code.bin (see src/code_home.c for the format)."""
+    files = sorted(p for p in (ROOT_DIR / "src" / "heap").glob("*.c"))
+    HEAP_UNITY_C.write_text("".join(f'#include "{p.as_posix()}"' + chr(10) for p in files))
+    compile_c_source(HEAP_UNITY_C, HEAP_OBJ_O)
+    relocs = []
+    image, syms, _ = link_elf_object(HEAP_OBJ_O, 0, externs=itcm_syms, relocs_out=relocs)
+    exports = [syms[n] | 1 for n in HX_EXPORTS]
+    relocs = sorted(set(relocs))
+    hdr = struct.pack("<4I", 0x50485741, len(image), len(exports), len(relocs))
+    blob = hdr + struct.pack(f"<{len(exports)}I", *exports) + struct.pack(f"<{len(relocs)}I", *relocs) + image
+    out = EXTRACTED_DIR / "files" / HEAP_FILE_REL
+    out.parent.mkdir(exist_ok=True)
+    out.write_bytes(blob)
+    # dsd places only files listed in path_order.txt (an unlisted file gets an empty FAT entry): list it last
+    order = (VANILLA_EXTRACTED / "path_order.txt").read_text().splitlines()
+    order.append("/" + HEAP_FILE_REL.as_posix())
+    (EXTRACTED_DIR / "path_order.txt").write_text(chr(10).join(order) + chr(10))
+    (ROOT_DIR / "build" / "heap.map").write_text(chr(10).join(
+        f"0x{a:08X} {n}" for n, a in sorted(syms.items(), key=lambda kv: kv[1]) if n and not n.startswith(("@", "."))
+        and a < len(image)) + chr(10))
+    print(f"      Heap code: {len(image)} bytes, {len(relocs)} relocations -> files/{HEAP_FILE_REL.as_posix()} "
+          f"({len(blob)} bytes)")
+
+
 def main():
     files = write_unity_source()
     print(f"      Sources: {', '.join(p.name for p in files)}")
@@ -308,6 +351,7 @@ def main():
     apply_patches(syms)
     if os.environ.get("ACWW_NO_FILES") != "1":
         apply_file_patches()
+    build_heap_code(syms)
 
     print(f"[4/4] Building ROM {OUT_ROM}...")
     build_cmd = [
