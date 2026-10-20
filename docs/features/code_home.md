@@ -46,6 +46,25 @@ Hot per-frame code (draw, collision, coverage) stays in ITCM (no wait states).
 - Code home: 3.2 KB of the 8 KB reserve used, **~4.9 KB free**. Raise `HEAP_CODE_RESERVE` if needed: each KB comes
   out of the root heap.
 
+## Heap headroom (measured 2026-10-20, `tools/probes/heap_headroom.py`)
+Root heap = the game's wrapper at the arena start, with a NitroSystem expanded heap ('EXPH') at +0x30. Free list
+walked in ndsref:
+
+| Where | Vanilla free | AC:WW+ free |
+|---|---|---|
+| Heap size | 1405 KB | 1397 KB (−8 KB, 0.6%) |
+| Town, settled (24 furniture pieces placed) | 112.5 KB | 63.2 KB |
+| Town, walked south (more models in view) | 112.5 KB | 47.1 KB |
+| Town, pockets or Start menu open | 112.5 KB | 47.1 KB (menus don't use this heap) |
+| Inside the house | 326.8 KB | 318.8 KB |
+
+- Free space is always one contiguous block (no fragmentation seen).
+- The 8 KB is a fixed, small cost. In town the big consumer is the 3D furniture model cache (~5.6 KB cache + about
+  1.5–2 KB per loaded model), which stops loading at 48 KB free (`HEAP_MIN_FREE`). With few pieces outdoors,
+  town free stays near 104 KB.
+- Not measured: the museum, shops, villager houses, local multiplayer, events. Vanilla doesn't use its town slack
+  in the cases measured, but rarer scenes may.
+
 ## Needs a hardware check
 - The root heap is 8 KB smaller. The game's own large allocations (scene loads, the museum, Nook's) should be
   tried on the flashcart. Our model cache already refuses loads below 48 KB free.
