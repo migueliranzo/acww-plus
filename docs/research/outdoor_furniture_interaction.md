@@ -30,14 +30,11 @@ Sources: `N3\ov004_classes.json`, `N3\work\h00.md`–`h02.md` (ov004 furniture c
 | **Sit on chairs / sofas / benches** | Port the eight sit actions (0x25–0x2C) plus the seat-side detection, rewrite their ov004 helper calls, redirect those action ids to our code while ov003 is loaded, place the player on the drum-bent ground at seat height, and get up cleanly when a scene change, a villager talk or a save interrupts. Beds (lie down, 0x08–0x0F) would be a second port of similar size. | ~4–6 KB | large (several sessions, a lot of emulator plus hardware testing) | high: player state machine, multiplayer sync of actions, saving while seated |
 
 ## Code space
-- The ITCM payload has **524 bytes** left (after the 2026-10-20 ghost fix and tree-drop leaves). Lamp glow just fits; on/off
-  does not fit; sitting clearly needs a new code home.
-- Most realistic new home: a **code file loaded into a root-heap block at boot** (NitroFS file + a small loader in
-  the ITCM payload; position-independent or linked at the allocated address with a fixed heap reservation). It
-  costs ~5 KB of heap for the session. The empty overlays (ov000, ov057–064, ov089) could carry the file, but they
-  still need a free RAM range to load into, and none is known. ov003's 0x238-byte tail slack is too small.
-- Measuring DTCM stack use (16 KB, 1120 B of data) could free a few KB, but stack overflow there would crash hard,
-  so it needs worst-case measurements first.
+- Update 2026-10-20: the code home exists now (`docs/features/code_home.md`): an 8 KB block at `0x0229F9A0` below
+  the moved SDK main arena, ~5.5 KB free, plus ~2.8 KB free in ITCM. Lamp on/off fits easily. Sitting (4–6 KB) fits
+  if the reserve is raised a little.
+- (Original note: the ITCM payload had 524 bytes left; a heap-loaded code file was the first idea, then replaced by
+  the arena shift.)
 
 ## Recommendation
 1. Lamp glow at night: cheap and safe, worth doing if wanted.

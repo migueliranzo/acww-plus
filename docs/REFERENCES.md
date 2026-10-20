@@ -76,15 +76,19 @@ Abbreviations: `RUNS` = `C:\NDS_RECOMP\prototype\runs`, `CGD` = `E:\claudeGameDe
 - Player's guide (game facts): `C:\NDS_RECOMP\acww-docs\`.
 
 ## Code space (our own notes)
-- Current payload: ITCM tail at `0x01FFDC00`, ~9 KB usable up to `0x02000000`. The payload is **6.7 KB**, with ~2.5 KB left (2026-10-20, after moving the furniture model loading into the code home).
-- **Code home:** `/zplus/code.bin` (`src/heap/*.c`), loaded into a root-heap block on first use. See `docs/features/code_home.md`.
-- Ruled out as caves:
-  - `unk_autoload_3`: it is the main BSS (`0x0213FAA0`, 0xC4280 bytes).
-  - The gap after it: that is ov001's slot (`0x02203D20`).
-- Next candidates:
-  - measure DTCM stack use (DTCM `0x027E0000`, 16 KB; only 1120 bytes of data)
-  - a code file loaded into a heap block at boot
-  - ov003's tail slack (0x238 bytes)
+- **ITCM payload:** ITCM tail at `0x01FFDC00`, ~9 KB usable up to `0x02000000`. The payload is **6.4 KB**, with ~2.8 KB
+  left (2026-10-20). Keep per-frame hot code here.
+- **Code home (2026-10-20):** `0x0229F9A0..0x022A19A0` (8 KB), the start of the SDK main arena, moved up by patching
+  the SDK literal at `0x02117BD8`. `src/heap/*.c` is linked there and shipped as an extra autoload (index 3; the main
+  BSS clear becomes index 4). ~5.5 KB free. Details and reasoning: `docs/features/code_home.md`.
+  - Chosen over a root-heap block loaded from a file (commit 9cc81c9): same RAM cost, but no runtime allocation, no
+    relocation, no lifetime handling.
+- Memory map facts: main BSS `0x0213FAA0..0x02203D20`, then the overlay slots (ov001 at `0x02203D20`); the highest
+  overlay end is ov098's, `0x0229F9A0` (= the vanilla main arena lo). Boot fills the overlay region up to there with
+  `0xE7FEE7FE` traps (`boot_fill_overlay_region_trap`).
+- Ruled out: `unk_autoload_3` (it is the main BSS); DTCM (not executable); empty overlays without a free RAM range.
+- Other candidates if ever needed: a bigger arena shift (each KB comes out of the root heap); ov003's tail slack
+  (0x238 bytes).
 
 ## Free save space we use
 - PostOffice `pad_98e` (block `0x14FCA`): skin base tone, 4 bits per player.

@@ -1,7 +1,7 @@
 /*
- * AC:WW+ heap code (code home, see src/code_home.c): outdoor furniture model loading.
- * Linked at 0 and relocated by the loader into a root-heap block; it only calls the game and the ITCM payload
- * through absolute pointers. Exports are listed in tools/build_rom.py (HX_EXPORTS), in code_home.h order.
+ * AC:WW+ code home (src/code_home.h): outdoor furniture model loading.
+ * Linked at its fixed address (autoload block at 0x0229F9A0, after the export table); calls into the game and the ITCM payload
+ * are plain calls. Exports are listed in tools/build_rom.py (HX_EXPORTS), in code_home.h order.
  */
 
 #include "ftr_shared.h"

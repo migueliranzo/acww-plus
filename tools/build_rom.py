@@ -285,34 +285,66 @@ def write_unity_source():
 
 HEAP_UNITY_C = ROOT_DIR / "build" / "acww_heap_unity.c"
 HEAP_OBJ_O = ROOT_DIR / "build" / "acww_heap.o"
-HEAP_FILE_REL = Path("zplus") / "code.bin"
-# Export order = the HX_* slots in src/code_home.h
+# Code home: the SDK's main arena (and so the root heap) starts at 0x0229F9A0, right after the highest overlay (ov098).
+# We move the arena start up by HEAP_CODE_RESERVE and put src/heap/*.c there as an extra autoload block, which the
+# crt0 copies in at boot like the ITCM payload (see docs/features/code_home.md).
+HEAP_CODE_BASE = 0x0229F9A0
+HEAP_CODE_RESERVE = 0x2000
+ARENA_LO_LITERAL = 0x02117BD8          # unk_autoload_2: SDK main arena lo (OS_InitArena / OS_GetInitArenaLo)
+AUTOLOAD2_BASE = 0x020E8180
+HX_MAGIC = 0x50485741                  # 'AWHP'
+# Export table at HEAP_CODE_BASE: magic, then these, in the order of the HX_* slots in src/code_home.h
 HX_EXPORTS = ["hx_claim_vram", "hx_can_place", "hx_load_model"]
 
 
 def build_heap_code(itcm_syms):
-    """src/heap/*.c -> files/zplus/code.bin (see src/code_home.c for the format)."""
+    """src/heap/*.c -> autoload 4 at HEAP_CODE_BASE; the SDK main arena starts HEAP_CODE_RESERVE later."""
     files = sorted(p for p in (ROOT_DIR / "src" / "heap").glob("*.c"))
     HEAP_UNITY_C.write_text("".join(f'#include "{p.as_posix()}"' + chr(10) for p in files))
     compile_c_source(HEAP_UNITY_C, HEAP_OBJ_O)
-    relocs = []
-    image, syms, _ = link_elf_object(HEAP_OBJ_O, 0, externs=itcm_syms, relocs_out=relocs)
-    exports = [syms[n] | 1 for n in HX_EXPORTS]
-    relocs = sorted(set(relocs))
-    hdr = struct.pack("<4I", 0x50485741, len(image), len(exports), len(relocs))
-    blob = hdr + struct.pack(f"<{len(exports)}I", *exports) + struct.pack(f"<{len(relocs)}I", *relocs) + image
-    out = EXTRACTED_DIR / "files" / HEAP_FILE_REL
-    out.parent.mkdir(exist_ok=True)
-    out.write_bytes(blob)
-    # dsd places only files listed in path_order.txt (an unlisted file gets an empty FAT entry): list it last
-    order = (VANILLA_EXTRACTED / "path_order.txt").read_text().splitlines()
-    order.append("/" + HEAP_FILE_REL.as_posix())
-    (EXTRACTED_DIR / "path_order.txt").write_text(chr(10).join(order) + chr(10))
+    table = 4 * (1 + len(HX_EXPORTS))
+    image, syms, _ = link_elf_object(HEAP_OBJ_O, HEAP_CODE_BASE + table, externs=itcm_syms)
+    blob = struct.pack(f"<{1 + len(HX_EXPORTS)}I", HX_MAGIC, *[syms[n] | 1 for n in HX_EXPORTS]) + image
+    if len(blob) > HEAP_CODE_RESERVE:
+        raise RuntimeError(f"heap code is {len(blob)} bytes, reserve is {HEAP_CODE_RESERVE}")
+    # dsd orders autoloads by index, and the crt0 handles them in that order. The main BSS clear (vanilla autoload
+    # 3, 0x0213FAA0..0x02203D20) covers where this block's source data sits in the loaded arm9 image, so this block
+    # must come first: it takes index 3 and the BSS clear becomes index 4 (the game's autoload callback is a bare
+    # bx lr; nothing else looks at the indices). Check: tools/analysis/arm9_autoloads.py build/acww_plus.nds
+    arm9_dir = EXTRACTED_DIR / "arm9"
+    (arm9_dir / "hx_autoload.bin").write_bytes(blob)
+    (arm9_dir / "hx_autoload.yaml").write_text(
+        f"base_address: {HEAP_CODE_BASE}{chr(10)}code_size: {len(blob)}{chr(10)}bss_size: 0{chr(10)}kind:{chr(10)}  Unknown: 3{chr(10)}")
+    shutil.copyfile(VANILLA_EXTRACTED / "arm9" / "unk_autoload_3.bin", arm9_dir / "bss_autoload.bin")
+    bss_yaml = (VANILLA_EXTRACTED / "arm9" / "unk_autoload_3.yaml").read_text()
+    assert "Unknown: 3" in bss_yaml
+    (arm9_dir / "bss_autoload.yaml").write_text(bss_yaml.replace("Unknown: 3", "Unknown: 4"))
+    for old in ("unk_autoload_4.bin", "unk_autoload_4.yaml"):
+        (arm9_dir / old).unlink(missing_ok=True)
+    cfg_path = EXTRACTED_DIR / "config.yaml"
+    cfg = (VANILLA_EXTRACTED / "config.yaml").read_text()
+    old_entry = ("  - index: 3" + chr(10) + "    bin: arm9/unk_autoload_3.bin" + chr(10) +
+                 "    config: arm9/unk_autoload_3.yaml" + chr(10))
+    assert old_entry in cfg
+    cfg = cfg.replace(old_entry,
+                      "  - index: 3" + chr(10) + "    bin: arm9/hx_autoload.bin" + chr(10) +
+                      "    config: arm9/hx_autoload.yaml" + chr(10) +
+                      "  - index: 4" + chr(10) + "    bin: arm9/bss_autoload.bin" + chr(10) +
+                      "    config: arm9/bss_autoload.yaml" + chr(10))
+    cfg_path.write_text(cfg)
+    # SDK main arena lo: 0x0229F9A0 -> 0x0229F9A0 + reserve (checked against vanilla)
+    a2 = bytearray((VANILLA_EXTRACTED / "arm9" / "unk_autoload_2.bin").read_bytes())
+    off = ARENA_LO_LITERAL - AUTOLOAD2_BASE
+    if struct.unpack_from("<I", a2, off)[0] != HEAP_CODE_BASE:
+        raise RuntimeError("unk_autoload_2: arena lo literal is not 0x0229F9A0")
+    struct.pack_into("<I", a2, off, HEAP_CODE_BASE + HEAP_CODE_RESERVE)
+    (EXTRACTED_DIR / "arm9" / "unk_autoload_2.bin").write_bytes(a2)
     (ROOT_DIR / "build" / "heap.map").write_text(chr(10).join(
         f"0x{a:08X} {n}" for n, a in sorted(syms.items(), key=lambda kv: kv[1]) if n and not n.startswith(("@", "."))
-        and a < len(image)) + chr(10))
-    print(f"      Heap code: {len(image)} bytes, {len(relocs)} relocations -> files/{HEAP_FILE_REL.as_posix()} "
-          f"({len(blob)} bytes)")
+        and HEAP_CODE_BASE <= a < HEAP_CODE_BASE + len(blob)) + chr(10))
+    print(f"      Heap code: {len(blob)} bytes at 0x{HEAP_CODE_BASE:08X} (autoload 3), "
+          f"{HEAP_CODE_RESERVE - len(blob)} of 0x{HEAP_CODE_RESERVE:X} left; arena lo -> "
+          f"0x{HEAP_CODE_BASE + HEAP_CODE_RESERVE:08X}")
 
 
 def main():
