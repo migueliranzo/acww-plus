@@ -20,6 +20,19 @@ PATCHES = [
     ("arm9", 0x02042B7A, "bl", "00f04bf8", "hook_field_put_spot_check", "field_put_spot_find -> spot check"),
     ("arm9", 0x02044CEA, "bl", "00f063fd", "hook_tree_drop_item", "tree_shake_nonfruit_drop -> item put request"),
     ("arm9", 0x0200FAF0, "bl", "f8f174fd", "hook_ov003_act_on_target", "player_act_on_target_dispatch -> ov003 A handler"),
+    # Sitting outdoors: the action tables' entries for 0x25 / 0x28 / 0x2C (ov004 handlers) -> trampolines
+    ("arm9", 0x020D7074, "ptr", "21542202", "sit_start_25", "action 0x25 start -> ov004 or town sit"),
+    ("arm9", 0x020D6704, "ptr", "31532202", "sit_tick_25", "action 0x25 tick -> ov004 or town sit"),
+    ("arm9", 0x020D72CC, "ptr", "cd532202", "sit_exit_25", "action 0x25 exit -> ov004 or town sit"),
+    ("arm9", 0x020D6B84, "ptr", "ed532202", "sit_remote_25", "action 0x25 remote -> ov004 or town sit"),
+    ("arm9", 0x020D705C, "ptr", "2d4e2202", "sit_start_28", "action 0x28 start -> ov004 or town sit"),
+    ("arm9", 0x020D6A7C, "ptr", "814c2202", "sit_tick_28", "action 0x28 tick -> ov004 or town sit"),
+    ("arm9", 0x020D72B4, "ptr", "094e2202", "sit_exit_28", "action 0x28 exit -> ov004 or town sit"),
+    ("arm9", 0x020D6BAC, "ptr", "194e2202", "sit_remote_28", "action 0x28 remote -> ov004 or town sit"),
+    ("arm9", 0x020D703C, "ptr", "4d482202", "sit_start_2C", "action 0x2c start -> ov004 or town sit"),
+    ("arm9", 0x020D66CC, "ptr", "f9462202", "sit_tick_2C", "action 0x2c tick -> ov004 or town sit"),
+    ("arm9", 0x020D729C, "ptr", "dd472202", "sit_exit_2C", "action 0x2c exit -> ov004 or town sit"),
+    ("arm9", 0x020D6CE4, "ptr", "1d482202", "sit_remote_2C", "action 0x2c remote -> ov004 or town sit"),
 
     # --- Feature 8: Nookington's without a visitor purchase ---
     # shop_visitor_sale_flag_test (only caller: shop_next_stage) -> movs r0,#1; bx lr

@@ -14,7 +14,11 @@
 #define HX_CLAIM_VRAM   0
 #define HX_CAN_PLACE    1
 #define HX_LOAD_MODEL   2
-#define HX_NUM_EXPORTS  3
+#define HX_IS_SEAT      3
+#define HX_SIT_REQUEST  4
+#define HX_SIT_START    5
+#define HX_SIT_TICK     6
+#define HX_NUM_EXPORTS  7
 
 #define g_hx_fn         ((void *const *)(HX_CODE_BASE + 4))
 #define hx_ready()      (*(volatile u32 *)HX_CODE_BASE == HX_MAGIC)

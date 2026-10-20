@@ -76,11 +76,11 @@ Abbreviations: `RUNS` = `C:\NDS_RECOMP\prototype\runs`, `CGD` = `E:\claudeGameDe
 - Player's guide (game facts): `C:\NDS_RECOMP\acww-docs\`.
 
 ## Code space (our own notes)
-- **ITCM payload:** ITCM tail at `0x01FFDC00`, ~9 KB usable up to `0x02000000`. The payload is **6.4 KB**, with ~2.8 KB
+- **ITCM payload:** ITCM tail at `0x01FFDC00`, ~9 KB usable up to `0x02000000`. The payload is **7.9 KB**, with ~1.1 KB
   left (2026-10-20). Keep per-frame hot code here.
 - **Code home (2026-10-20):** `0x0229F9A0..0x022A19A0` (8 KB), the start of the SDK main arena, moved up by patching
   the SDK literal at `0x02117BD8`. `src/heap/*.c` is linked there and shipped as an extra autoload (index 3; the main
-  BSS clear becomes index 4). ~5.5 KB free. Details and reasoning: `docs/features/code_home.md`.
+  BSS clear becomes index 4). ~4.9 KB free. Details and reasoning: `docs/features/code_home.md`.
   - Chosen over a root-heap block loaded from a file (commit 9cc81c9): same RAM cost, but no runtime allocation, no
     relocation, no lifetime handling.
 - Memory map facts: main BSS `0x0213FAA0..0x02203D20`, then the overlay slots (ov001 at `0x02203D20`); the highest

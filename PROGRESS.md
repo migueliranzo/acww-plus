@@ -5,7 +5,7 @@ Build: `py -3.12 tools/build_rom.py` → `build/acww_plus.nds`. Headless tests: 
 
 | # | Feature | Status | Notes |
 |---|---|---|---|
-| 1 | Furniture can be placed outdoors | **done** | `docs/features/outdoor_furniture.md` |
+| 1 | Furniture can be placed outdoors | **done** (+ sitting, lamps, tree drops stay leaves) | `docs/features/outdoor_furniture.md` |
 | 2 | Patterns can use transparency | **done** (editor UI untested) | `docs/features/pattern_transparency.md` |
 | 3 | Skin tone can be changed on the attic phone | **done** | `docs/features/skin_tone.md` |
 | 4 | Sock / shoe color variations | **done** | `docs/features/shoes_socks.md` |
@@ -30,7 +30,28 @@ Build: `py -3.12 tools/build_rom.py` → `build/acww_plus.nds`. Headless tests: 
 - **Code space:** the ITCM payload is 6.6 KB, with about 2.5 KB free. `docs/REFERENCES.md` lists the next places to look for more.
 - **Save use:** PostOffice pad (skin base tone) and PlayerTasks pad +0x1DD9 (shoe and sock colours). Both are 0 in vanilla saves.
 
+## Session summary (2026-10-20, outdoor furniture follow-ups)
+- **Fixed:** the invisible solid square left where a 2-square piece's second square was, after a pickup (seen on
+  hardware). The coverage list went stale once nothing was drawn. Regression test: `test_furniture.py ghost`.
+- **New:**
+  - Furniture shaken out of a tree stays a leaf; only player-dropped furniture is 3D (RAM only: an unpicked tree
+    drop shows 3D after a reload).
+  - Lamps and candles glow at night, and A switches them.
+  - A sits on chairs, benches and sofas (d-pad / B to stand up).
+  - Code home: an 8 KB block at `0x0229F9A0` below the moved SDK main arena (`docs/features/code_home.md`).
+- **Please check on the flashcart:**
+  1. Pick up a beach chair or bench outdoors: no invisible block left behind.
+  2. Shake a tree with furniture in it: a leaf, not a 3D model.
+  3. At night, lamps glow; A with empty hands switches one.
+  4. Sitting outdoors: the pose looks right; d-pad or B stands up. Also sit on a chair **indoors**: the indoor sit
+     actions now go through trampolines (not covered by the headless tests).
+  5. The root heap is 8 KB smaller: visit the museum, Nook's, a few houses.
+- **Known limits:** no sound for lamp switching or sitting outdoors; no lying on beds outdoors; sitting is off while
+  other players are in town.
+
 ## Log
+- 2026-10-20: ghost-square fix, tree drops stay leaves, lamp glow, code home (heap file first, then the arena
+  shift), lamp switching, sitting. Suite 29/29.
 - 2026-10-19:
   - Set up git.
   - Replaced the `build/extracted/files` junction (it pointed into the read-only reference tree) with a real copy.

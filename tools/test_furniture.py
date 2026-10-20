@@ -324,6 +324,48 @@ def lampuse_main():
         print(f"  RESULT A switches a lamp off and on: {'PASS' if ok else 'FAIL'}")
 
 
+def sit_main(piece="chair"):
+    """Two squares south of the door, the player faces square (11,9). chair: an exotic chair (model 4, facing 3) on
+    it. bench: an exotic bench (2-square, facing 1) anchored at (11,10), so (11,9) is its second square (0xF031).
+    A with empty hands sits the player there (actions 0x25 -> 0x28, position = the square's centre); Up stands them
+    up (0x2C) and puts them back."""
+    grid = {tile_off(9, 11, 9): 0x3013} if piece == "chair" else {tile_off(9, 11, 10): 0x300D}
+    save = prepare_save(PROJECT / "build" / f"test_furniture_sit_{piece}.sav", edits=dict(bells=50000), grid=grid)
+    with Emu(ROM_PLUS, str(save), tag=f"ftrs_{piece}") as e:
+        e.boot_to_town()
+        e.wait(300)
+        x0, z0 = walk_until(e, "down", 2, 58.0, max_frames=300)
+        a = player_actor(e)
+        e.press("a", hold=6)
+        e.wait(8)
+        e.shot("89_sitting_down")
+        seen = []
+        for _ in range(60):
+            e.wait(4)
+            act = e.u32(a + 0x7EC)
+            if not seen or seen[-1] != act:
+                seen.append(act)
+        x1, _, z1, ang = player_pos(e)
+        e.shot("90_sitting")
+        g0 = e.u32(0x021F7E10)
+        e.wait(30)
+        alive = e.u32(0x021F7E10) - g0
+        e.press("up", hold=10)
+        for _ in range(60):
+            e.wait(4)
+            act = e.u32(a + 0x7EC)
+            if seen[-1] != act:
+                seen.append(act)
+        x2, _, z2, _ = player_pos(e)
+        e.shot("91_stood_up")
+        print(f"  stood at ({x0:.2f},{z0:.2f}); sitting at ({x1/8192:.2f},{z1/8192:.2f}) angle={ang:#06x}; "
+              f"after Up ({x2/8192:.2f},{z2/8192:.2f}); actions {[hex(v) for v in seen]}; game frames {alive}/30")
+        sat = 0x25 in seen and 0x28 in seen and abs(x1 / 8192 - 43.5) < 0.05 and abs(z1 / 8192 - 57.5) < 0.05
+        print(f"  RESULT A on a {piece} sits the player on it: {'PASS' if sat and alive > 5 else 'FAIL'}")
+        up = 0x2C in seen and seen[-1] not in (0x25, 0x28, 0x2C) and abs(z2 / 8192 - z0) < 0.6
+        print(f"  RESULT Up stands the player up from the {piece} where they were: {'PASS' if up else 'FAIL'}")
+
+
 def ghost_main():
     save = prepare_save(PROJECT / "build" / "test_furniture_ghost.sav",
                         edits=dict(bells=50000), grid={tile_off(9, 13, 11): 0x3015})
@@ -339,6 +381,8 @@ STAGES = {"marker": stage_marker_only, "pickup": stage_pickup, "collide": stage_
 def main():
     if sys.argv[1:] == ["ghost"]:
         return ghost_main()
+    if sys.argv[1:2] == ["sit"]:
+        return sit_main(*sys.argv[2:3])
     if sys.argv[1:] == ["lampuse"]:
         return lampuse_main()
     if sys.argv[1:] == ["lamp"]:

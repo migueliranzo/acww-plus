@@ -1,5 +1,8 @@
 # Research: sitting on outdoor furniture, interactive / glowing lamps
 
+**Update 2026-10-20: implemented** (lamp glow, lamp switching with A, sitting on chairs/benches/sofas). What was
+built and how it differs from the plan below: `docs/features/outdoor_furniture.md`. Beds are not done.
+
 Status: research only (2026-10-20), nothing implemented. Rotation, animations and storage are out of scope.
 Sources: `N3\ov004_classes.json`, `N3\work\h00.md`–`h02.md` (ov004 furniture classes), `N2\action_table.json`.
 

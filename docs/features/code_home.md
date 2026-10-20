@@ -37,12 +37,13 @@ file, and a guard against the block going stale if the heap were rebuilt. The ar
 | Export | From | Size |
 |---|---|---|
 | `hx_claim_vram`, `hx_can_place`, `hx_load_model` | outdoor furniture model loading (file reads, texture halving, VRAM arena search, eviction) | ~2.5 KB |
+| `hx_is_seat_model`, `hx_sit_request`, `hx_sit_start`, `hx_sit_tick` | sitting on outdoor seats (`src/heap/sit.c`) | ~0.6 KB |
 
 Hot per-frame code (draw, collision, coverage) stays in ITCM (no wait states).
 
 ## Budget (2026-10-20)
-- ITCM payload: 6.4 KB, **~2.8 KB free**.
-- Code home: 2.6 KB of the 8 KB reserve used, **~5.5 KB free**. Raise `HEAP_CODE_RESERVE` if needed: each KB comes
+- ITCM payload: 7.9 KB, **~1.1 KB free** (after lamp switching and the sit trampolines).
+- Code home: 3.2 KB of the 8 KB reserve used, **~4.9 KB free**. Raise `HEAP_CODE_RESERVE` if needed: each KB comes
   out of the root heap.
 
 ## Needs a hardware check

@@ -294,7 +294,8 @@ ARENA_LO_LITERAL = 0x02117BD8          # unk_autoload_2: SDK main arena lo (OS_I
 AUTOLOAD2_BASE = 0x020E8180
 HX_MAGIC = 0x50485741                  # 'AWHP'
 # Export table at HEAP_CODE_BASE: magic, then these, in the order of the HX_* slots in src/code_home.h
-HX_EXPORTS = ["hx_claim_vram", "hx_can_place", "hx_load_model"]
+HX_EXPORTS = ["hx_claim_vram", "hx_can_place", "hx_load_model", "hx_is_seat_model", "hx_sit_request", "hx_sit_start",
+              "hx_sit_tick"]
 
 
 def build_heap_code(itcm_syms):

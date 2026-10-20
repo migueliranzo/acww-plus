@@ -47,6 +47,7 @@
 #define FN_VRAM_REQ_CTOR            ((void *(*)(void *req))(0x020B8FF4 | 1))
 #define FN_FS_LOAD_DECOMPRESS       ((void *(*)(const char *path, u32 heap, int align, u32 *out_sz))(0x02064490 | 1))
 #define FN_LIGHT_SLOT2_TO_EMI       ((u16 (*)(void))(0x02064F68 | 1))
+#define FN_OTHER_PLAYERS_COUNT      ((u32 (*)(void))(0x020B13A8 | 1))
 #define FN_OV003_ACT_ON_TARGET      ((int (*)(u32 actor))(0x022085DC | 1))
 #define FN_OV003_SHAPE_LOOKUP_ORIG  ((const u8 *(*)(const u16 *item_ptr))(0x022235BC | 1))
 

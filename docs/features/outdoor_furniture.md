@@ -1,6 +1,6 @@
 # Feature: furniture can be placed outdoors
 
-Status: **done** (verified headless on ndsref, 2026-10-19). Source: `src/outdoor_furniture.c`. Test: `tools/test_furniture.py [collide|drop|house|pickup|marker]`, or `ghost` / `treedrop` / `lamp` / `lampuse` alone.
+Status: **done** (verified headless on ndsref, 2026-10-19). Source: `src/outdoor_furniture.c`. Test: `tools/test_furniture.py [collide|drop|house|pickup|marker]`, or `ghost` / `treedrop` / `lamp` / `lampuse` / `sit chair` / `sit bench` alone.
 
 ## What the player sees
 - Furniture dropped outdoors from the pockets ("Drop on Ground") is drawn as its real 3D model, not a leaf.
@@ -11,6 +11,10 @@ Status: **done** (verified headless on ndsref, 2026-10-19). Source: `src/outdoor
   in RAM (8 lamps) until the lamp is picked up; after a save and reload every lamp follows the clock again. No
   sound: the indoor lamp switch sounds (0x498 / 0x499) froze the game when played in town, presumably because
   their sound bank isn't loaded there. Evidence: `ftru_81` / `ftru_82`.
+- **Sitting:** A with empty hands, facing a chair, bench, sofa or couch (either square of a 2-square piece),
+  sits the player on that square, turned the way the piece faces. The d-pad or B stands them up, back where they
+  stood. 59 seat models (dma.bin behaviour kinds 0x08 / 0x26 / 0x2C, the indoor chair class). Not offered while
+  other players are in town. Beds (lying down) are not done. Evidence: `ftrs_chair_90_sitting`.
 - Furniture shaken out of a tree stays a leaf (vanilla look, not solid, no markers) until picked up. RAM only: after a
   save and reload, an unpicked tree drop shows as 3D furniture (owner's choice, 2026-10-20).
   - It uses the town's curved-drum matrix and time-of-day lighting.
@@ -30,7 +34,8 @@ Status: **done** (verified headless on ndsref, 2026-10-19). Source: `src/outdoor
 | 4 | arm9 `0x02042DB4` (outdoor drop) | Puts the player's facing into `item & 3`. Flags a furniture drop in progress. |
 | 5 | arm9 `0x02042B7A` (`field_put_spot_find` → `field_put_spot_check`) | During a furniture drop, a spot passes only if every footprint square passes. |
 | 6 | arm9 `0x02044CEA` (`tree_shake_nonfruit_drop` → item-put request `0x020457B4`) | Remembers the square of tree-dropped furniture (`s_leaf`, 8 squares). Draw and collision treat those squares as vanilla. An entry is dropped once its square no longer holds furniture (checked each drawn frame and before every player drop). |
-| 7 | arm9 `0x0200FAF0` (`player_act_on_target_dispatch` → ov003 A handler, every logic frame) | On an A press (KEYINPUT edge) with empty hands, a lamp in front is switched instead of the vanilla handler. |
+| 7 | arm9 `0x0200FAF0` (`player_act_on_target_dispatch` → ov003 A handler, every logic frame) | On an A press (KEYINPUT edge) with empty hands, a lamp in front is switched, or a seat in front is sat on, instead of the vanilla handler. |
+| 8 | arm9 action tables (12 pointers: start/tick/exit/remote of actions 0x25, 0x28, 0x2C, e.g. `0x020D7074`) | Trampolines: indoors (`*0x020E4E00 == 1`, ov004 loaded) the ov004 handler runs; in town our sitting (`src/heap/sit.c`). |
 
 - **Footprints** come from the game's own helper: `furniture_footprint_ctor/count/square` (`0x02052664/48/E8`). This is the same table the house rooms use.
   - Secondary squares hold **0xF031**, the house-room "second square of a furniture piece" id.
@@ -61,7 +66,12 @@ Status: **done** (verified headless on ndsref, 2026-10-19). Source: `src/outdoor
 
 ## Limits / known behaviour
 - **Texture memory is the ceiling.** Outdoor textures are loaded at half resolution (`tex_halve`, 4× less VRAM), so about 20+ distinct models show at once; 21 were drawn in the 24-piece stress test, at 20 fps. Beyond that, the farthest pieces show as leaves until the player walks closer. Details: `docs/OPTIMIZATION_REPORT.md`.
-- Interaction (sit, lie down, lamps, radios) is not implemented outdoors. Optional per the brief, and it would need the ov004 actor classes. Effort and risk: `docs/research/outdoor_furniture_interaction.md`.
+- Sitting, lamp glow and lamp switching are done (2026-10-20). Lying on beds, radios and other interactions are
+  not. Research, effort and risk: `docs/research/outdoor_furniture_interaction.md`.
+- Sitting in town is a simplified port: timed steps (20 logic frames) instead of the animation clock (it never
+  reports "ended" for these animations in town), no sit sound, no sitting sideways on armless chairs, and the
+  player is put back where they stood. Hardware check: the pose, and indoor sitting still working through the
+  trampolines (not covered by the headless tests).
 - Multiplayer: marker writes are local. Visitors see furniture as leaves unless they run the hack too.
 - Vanilla save compatibility: a hacked town loaded in vanilla shows furniture as leaves. Any 0xF031 squares stay inert, special-id squares that can't be picked up.
 

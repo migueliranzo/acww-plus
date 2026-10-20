@@ -626,9 +626,72 @@ static int ftr_lamp_use(u32 player) {
     return 1;
 }
 
+/* The anchor square of the piece covering t (t itself for an anchor), or 0. */
+static u16 *anchor_of(u16 *t) {
+    u32 idx = (u32)((const u8 *)t - (const u8 *)TOWN_GRID_RAM) >> 1;
+    int b, i;
+    if (is_furniture_item(*t)) {
+        return t;
+    }
+    if (*t != ITEM_FTR_COVERED) {
+        return 0;
+    }
+    for (b = 0; b < 2; b++) {
+        for (i = 0; i < s_cover_n[b]; i++) {
+            if (s_cover[b][i][0] == idx) {
+                u16 *a = (u16 *)TOWN_GRID_RAM + s_cover[b][i][1];
+                return is_furniture_item(*a) ? a : 0;
+            }
+        }
+    }
+    return 0;
+}
+
+/*
+ * With empty hands, A facing a chair, bench or sofa (or its second square) sits the player on that square
+ * (src/heap/sit.c). Not while other players are in town: their consoles would run the indoor sit actions.
+ */
+static int ftr_sit_use(u32 player) {
+    static const s8 s_dir[4][2] = { { 0, 1 }, { 1, 0 }, { 0, -1 }, { -1, 0 } };
+    u32 d = ((u32)(*(volatile u16 *)(player + 0x8E) + 0x2000) >> 14) & 3;
+    int ux, uz;
+    u16 *t, *a;
+    FN_POS_TO_UNIT_XZ(&ux, &uz, (const void *)(player + 0x5C));
+    ux += s_dir[d][0];
+    uz += s_dir[d][1];
+    t = town_tile(ux, uz);
+    if (t == 0 || (a = anchor_of(t)) == 0 || leaf_has(a) ||
+        !((int (*)(u32))g_hx_fn[HX_IS_SEAT])((u32)(*a - FTR_ITEM_MIN) >> 2) || FN_OTHER_PLAYERS_COUNT() > 1) {
+        return 0;
+    }
+    return ((int (*)(u32, int, int, u32))g_hx_fn[HX_SIT_REQUEST])(player, ux, uz, *a & 3);
+}
+
+/*
+ * Player actions 0x25 / 0x28 / 0x2C (sit down, sitting, stand up) live in ov004. Their entries in the action
+ * tables point here: indoors (ov004 loaded) the ov004 handler runs, in town our version (src/heap/sit.c).
+ */
+#define OV004_ACTIVE                (*(volatile u8 *)0x020E4E00 == 1)
+#define SIT_START(id, orig)     void sit_start_##id(u32 p, u32 req) {         if (OV004_ACTIVE) ((void (*)(u32, u32))((orig) | 1))(p, req);         else if (hx_ready()) ((void (*)(u32, u32, u32))g_hx_fn[HX_SIT_START])(p, req, 0x##id);     }
+#define SIT_TICK(id, orig)     void sit_tick_##id(u32 p) {         if (OV004_ACTIVE) ((void (*)(u32))((orig) | 1))(p);         else if (hx_ready()) ((void (*)(u32, u32))g_hx_fn[HX_SIT_TICK])(p, 0x##id);     }
+#define SIT_PASS(name, orig)     void name(u32 a0, u32 a1, u32 a2, u32 a3) {         if (OV004_ACTIVE) ((void (*)(u32, u32, u32, u32))((orig) | 1))(a0, a1, a2, a3);     }
+SIT_START(25, 0x02225420)
+SIT_START(28, 0x02224E2C)
+SIT_START(2C, 0x0222484C)
+SIT_TICK(25, 0x02225330)
+SIT_TICK(28, 0x02224C80)
+SIT_TICK(2C, 0x022246F8)
+SIT_PASS(sit_exit_25, 0x022253CC)
+SIT_PASS(sit_exit_28, 0x02224E08)
+SIT_PASS(sit_exit_2C, 0x022247DC)
+SIT_PASS(sit_remote_25, 0x022253EC)
+SIT_PASS(sit_remote_28, 0x02224E18)
+SIT_PASS(sit_remote_2C, 0x0222481C)
+
 /*
  * Hook 7: player_act_on_target_dispatch's outdoor call of the A-button handler (arm9 0x0200FAF0 ->
- * func_ov003_022085dc), run every logic frame. On an A press with empty hands, a lamp in front comes first.
+ * func_ov003_022085dc), run every logic frame. On an A press with empty hands, a lamp or a seat in front comes
+ * first.
  */
 int hook_ov003_act_on_target(u32 player) {
     static u8 s_a_prev;
@@ -636,7 +699,8 @@ int hook_ov003_act_on_target(u32 player) {
     u32 rec = PLAYER_REC_BASE + PLAYER_REC_SIZE * *(volatile u32 *)(*(volatile u32 *)PLAYER_IDX_PTR + 0x68);
     u32 edge = a && !s_a_prev;
     s_a_prev = (u8)a;
-    if (edge && *(volatile u16 *)(rec + PLAYER_REC_HAND) == ITEM_EMPTY && ftr_lamp_use(player)) {
+    if (edge && *(volatile u16 *)(rec + PLAYER_REC_HAND) == ITEM_EMPTY && hx_ready() &&
+        (ftr_lamp_use(player) || ftr_sit_use(player))) {
         return 1;
     }
     return FN_OV003_ACT_ON_TARGET(player);
