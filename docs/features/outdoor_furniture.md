@@ -1,16 +1,19 @@
 # Feature: furniture can be placed outdoors
 
-Status: **done** (verified headless on ndsref, 2026-10-19). Source: `src/outdoor_furniture.c`. Test: `tools/test_furniture.py [collide|drop|house|pickup|marker]`, or `ghost` / `treedrop` / `lamp` / `lampuse` / `sit chair` / `sit bench` alone.
+Status: **done** (verified headless on ndsref, 2026-10-19). Source: `src/outdoor_furniture.c`. Test: `tools/test_furniture.py [collide|drop|house|pickup|marker]`, or `ghost` / `treedrop` / `lampuse night|day` / `sit chair` / `sit bench` alone.
 
 ## What the player sees
 - Furniture dropped outdoors from the pockets ("Drop on Ground") is drawn as its real 3D model, not a leaf.
-- Lamps and candles (the 17 light-source models of `ftr_info/indoor.bin`, byte 1 bits 4/5) glow warm white from
-  18:00 to 06:00: their whole model gets emission 0x4B9F instead of the town's time-of-day emission. They don't light
-  the ground (the DS has no point lights). Evidence: `ftrl_80_lamp_night`.
-- **A with empty hands, facing a lamp,** switches it off (at night) or on (by day). The switch is kept per square
-  in RAM (8 lamps) until the lamp is picked up; after a save and reload every lamp follows the clock again. No
-  sound: the indoor lamp switch sounds (0x498 / 0x499) froze the game when played in town, presumably because
-  their sound bank isn't loaded there. Evidence: `ftru_81` / `ftru_82`.
+- **A with empty hands, facing a lamp,** switches it off: its shade (the model's `lp_m…` materials) turns dark
+  grey. A again switches it back on. Lamps are on (vanilla look) until switched. 16 switchable models: the
+  light-source models of `ftr_info/indoor.bin` (byte 1 bits 4/5) that have a shade material; the festive candle has
+  none. The switch is kept per square in RAM (8 lamps) until the lamp is picked up; after a save and reload every
+  lamp is on again. No sound: the indoor lamp switch sounds (0x498 / 0x499) froze the game when played in town,
+  presumably because their sound bank isn't loaded there. Evidence: `ftru_night_80` / `81` / `82`.
+  - **No "glow".** A lamp can't be made brighter than vanilla this way: the GPU multiplies the texture by the lit
+    colour, which is already about white day and night. The first version raised the emission at night and when
+    switched; the test passed on the material value, but nothing changed on screen (even a pure-blue emission didn't
+    show). Found 2026-10-22 from the owner's report; the test now compares pixels around the lamp.
 - **Sitting:** A with empty hands, facing a chair, bench, sofa or couch (either square of a 2-square piece),
   sits the player on that square, turned the way the piece faces. The d-pad or B stands them up, back where they
   stood. 59 seat models (dma.bin behaviour kinds 0x08 / 0x26 / 0x2C, the indoor chair class). Not offered while
@@ -66,7 +69,7 @@ Status: **done** (verified headless on ndsref, 2026-10-19). Source: `src/outdoor
 
 ## Limits / known behaviour
 - **Texture memory is the ceiling.** Outdoor textures are loaded at half resolution (`tex_halve`, 4× less VRAM), so about 20+ distinct models show at once; 21 were drawn in the 24-piece stress test, at 20 fps. Beyond that, the farthest pieces show as leaves until the player walks closer. Details: `docs/OPTIMIZATION_REPORT.md`.
-- Sitting, lamp glow and lamp switching are done (2026-10-20). Lying on beds, radios and other interactions are
+- Sitting and lamp switching are done (2026-10-20; lamp switching reworked 2026-10-22). Lying on beds, radios and other interactions are
   not. Research, effort and risk: `docs/research/outdoor_furniture_interaction.md`.
 - Sitting in town is a simplified port: timed steps (20 logic frames) instead of the animation clock (it never
   reports "ended" for these animations in town), no sit sound, no sitting sideways on armless chairs, and the

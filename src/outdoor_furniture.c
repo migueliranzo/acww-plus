@@ -19,17 +19,17 @@ u32 g_ftr_dbg[4];           /* debug counters: shape calls, furniture hits, mark
 /* Collision cylinder for outdoor furniture: radius=0x0C, height=0x10, kind=0x06 */
 static const u8 s_furniture_shape[4] = { 0x0C, 0x10, 0x06, 0x00 };
 
-/* Light-source models: ftr_info indoor.bin byte 1 bit 4/5 (furniture_model_flag4_5), same in all 5 languages.
- * exotic, regal, cabana, green, modern, lovely, robo-, snowman, mush lamps, blue dresser, mush stand, lantern,
- * table lamp, desk light, candle, mini-lamp, festive candle. */
-static const u16 s_light_models[17] = {
-    0x007, 0x024, 0x031, 0x038, 0x043, 0x059, 0x06D, 0x077, 0x081, 0x089, 0x08A, 0x17F, 0x209, 0x20A, 0x20B, 0x20C, 0x20E
+/* Switchable lights: the light-source models of ftr_info indoor.bin (byte 1 bit 4/5, furniture_model_flag4_5) that
+ * have a shade material ("lp_m..."): exotic, regal, cabana, green, modern, lovely, robo-, snowman, mush lamps, blue
+ * dresser, mush stand, lantern, table lamp, desk light, candle, mini-lamp. (The festive candle, 0x20E, has none.) */
+static const u16 s_light_models[16] = {
+    0x007, 0x024, 0x031, 0x038, 0x043, 0x059, 0x06D, 0x077, 0x081, 0x089, 0x08A, 0x17F, 0x209, 0x20A, 0x20B, 0x20C
 };
-#define LAMP_NIGHT_EMI              0x4B9F   /* warm white (RGB555 31,28,18) */
+#define LAMP_OFF_DIFFUSE            0x18C6   /* switched-off shade: grey (RGB555 6,6,6) instead of white 0x7FFF */
 
 static int is_light_model(u16 model_id) {
     int i;
-    for (i = 0; i < 17; i++) {
+    for (i = 0; i < 16; i++) {
         if (s_light_models[i] == model_id) {
             return 1;
         }
@@ -129,8 +129,8 @@ static int leaf_has(const u16 *t) {
     return grid_list_find(s_leaf, LEAF_MAX, t) >= 0;
 }
 
-/* Lamps switched with A (grid index + 1, 0 = free): their glow is the opposite of the time-of-day default.
- * RAM only, like the leaves; dropped once the square no longer holds a light. */
+/* Lamps switched off with A (grid index + 1, 0 = free). RAM only, like the leaves; dropped once the square no
+ * longer holds a light. */
 #define LAMP_TOG_MAX 8
 static u16 s_lamp_tog[LAMP_TOG_MAX];
 
@@ -145,14 +145,9 @@ static int grid_list_find(const u16 *list, int n, const u16 *t) {
     return -1;
 }
 
-/* Lamps glow from 18:00 to 06:00 (the hours the town's own lights are on), unless switched with A. */
-static int lamp_glows(u16 model_id, const u16 *t) {
-    u32 h = *GAME_HOUR_ADDR;
-    int on = h < 6 || h >= 18;
-    if (!is_light_model(model_id)) {
-        return 0;
-    }
-    return grid_list_find(s_lamp_tog, LAMP_TOG_MAX, t) >= 0 ? !on : on;
+/* A lamp switched off with A (lamps are on, i.e. look as in vanilla, until switched). */
+static int lamp_is_off(const u16 *t) {
+    return grid_list_find(s_lamp_tog, LAMP_TOG_MAX, t) >= 0;
 }
 
 /* Forgets leaves picked up and switched lamps taken away. */
@@ -311,6 +306,33 @@ static void slot_release_model(OutdoorFtrSlot *slot, u32 root_heap) {
     slot->model_id = 0xFFFF;
 }
 
+/*
+ * Sets a lamp's shade materials ("lp_m...", diffuse 0x7FFF and ambient 0 in every switchable model) to on or off.
+ * Off: grey diffuse and no emission, so the shade turns dark. The model resource is shared by every lamp of that
+ * model, so this runs before each lamp's draw, on or off.
+ * Making a lamp brighter than vanilla isn't possible this way: the GPU multiplies the texture by the lit colour,
+ * which is already about white day and night (an emission-based "glow" was tried and never showed on screen).
+ */
+static void lamp_set_shade(u8 *mdl, int off) {
+    u8 *resmat = mdl + *(u32 *)(mdl + 8);
+    u8 *dict = resmat + 4;
+    u32 count = dict[1];
+    u8 *info = dict + *(u16 *)(dict + 6);
+    u32 esz = *(u16 *)info;
+    const u8 *names = info + *(u16 *)(info + 2);
+    u32 i;
+    for (i = 0; i < count; i++) {
+        const u8 *n = names + i * 16;
+        if (n[0] == 'l' && n[1] == 'p' && n[2] == '_' && n[3] == 'm') {
+            u32 *md = (u32 *)(resmat + *(u32 *)(info + 4 + i * esz));
+            md[1] = (md[1] & ~0x7FFFu) | (off ? LAMP_OFF_DIFFUSE : 0x7FFF);   /* diffAmb */
+            if (off) {
+                md[2] &= 0x8000FFFF;                                          /* specEmi: no emission */
+            }
+        }
+    }
+}
+
 static int draw_outdoor_furniture(u32 ctx, const u16 *item_ptr, const u32 *mtx_src) {
     u32 root_heap = *ROOT_HEAP_PTR_ADDR;
     u16 item = *item_ptr;
@@ -409,8 +431,11 @@ static int draw_outdoor_furniture(u32 ctx, const u16 *item_ptr, const u32 *mtx_s
         FN_MTX_ROTATE_Y_MODEL(mtx_dst, facing << 14);
     }
 
-    emi = lamp_glows(model_id, item_ptr) ? LAMP_NIGHT_EMI : FN_LIGHT_SLOT2_TO_EMI();
+    emi = FN_LIGHT_SLOT2_TO_EMI();
     FN_NNS_G3D_SET_EMI_ALL(slot->mdl_ptr, emi);
+    if (is_light_model(model_id)) {
+        lamp_set_shade((u8 *)slot->mdl_ptr, lamp_is_off(item_ptr));
+    }
     FN_MDL_OBJ_DRAW(slot->mdl_obj, 0);
     return 1;
 }
@@ -599,8 +624,8 @@ u32 hook_tree_drop_item(u32 player, int *unit_xz, u32 item, u32 expect, u32 a5, 
 }
 
 /*
- * With empty hands, A switches a lamp on the square the player faces on or off. Returns 1 when A was used for a
- * lamp.
+ * With empty hands, A switches a lamp on the square the player faces off or back on. Returns 1 when A was used
+ * for a lamp.
  */
 static int ftr_lamp_use(u32 player) {
     static const s8 s_dir[4][2] = { { 0, 1 }, { 1, 0 }, { 0, -1 }, { -1, 0 } };   /* facing down, right, up, left */

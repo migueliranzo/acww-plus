@@ -63,7 +63,6 @@
 #define VRAM_PAL_CUR_ADDR           ((volatile u32 *)0x021F2CB0)
 #define VRAM_TEX_HI_ADDR            ((volatile u32 *)0x021F2CB4) /* 4 regions, hi bounds */
 #define VRAM_TEX_LO_ADDR            ((volatile u32 *)0x021F2CC4) /* 4 regions, lo bounds */
-#define GAME_HOUR_ADDR              ((volatile u32 *)0x021DA9A4) /* game clock hour 0..23 (RTC + save offset) */
 #define VRAM_PAL_END_ADDR           ((volatile u32 *)0x021F2CD4)
 
 /* Item ids */

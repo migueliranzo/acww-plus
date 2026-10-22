@@ -262,30 +262,6 @@ def material_emi(e, mdl):
     return (e.u32(md + 8) >> 16) & 0x7FFF
 
 
-def lamp_main():
-    """Exotic lamp (model 7) and exotic bench next to the door at 21:00 (save clock offset +9 h): the lamp's
-    materials must carry the warm night emission, the bench the town's normal emission."""
-    yard = {tile_off(9, 9, 8): 0x301C, tile_off(9, 13, 9): 0x300C}
-    night = {0x15FB4: struct.pack("<i", 9 * 60)}
-    save = prepare_save(PROJECT / "build" / "test_furniture_lamp.sav", edits=dict(bells=50000), grid=yard, pokes=night)
-    with Emu(ROM_PLUS, str(save), tag="ftrl") as e:
-        e.boot_to_town()
-        e.wait(300)
-        e.shot("80_lamp_night")
-        hour = e.u32(0x021DA9A4)
-        sc = e.u32(payload_symbols()["s_cache"])
-        emis = {}
-        for i in range(24):
-            b = e.read(sc + 72 + i * 232, 24)   # sizeof(OutdoorFtrSlot)
-            mid = struct.unpack_from("<H", b)[0]
-            mdl = struct.unpack_from("<I", b, 20)[0]
-            if mid != 0xFFFF and mdl:
-                emis[mid] = material_emi(e, mdl)
-        print(f"  hour={hour} emission by model: { {hex(k): hex(v) for k, v in emis.items()} }")
-        ok = hour >= 18 and emis.get(7) == 0x4B9F and 3 in emis and emis[3] != 0x4B9F
-        print(f"  RESULT lamp glows at night, bench does not: {'PASS' if ok else 'FAIL'} (hour={hour}, lamp={emis.get(7)}, bench={emis.get(3)})")
-
-
 def model_emis(e):
     sc = e.u32(payload_symbols()["s_cache"])
     emis = {}
@@ -298,31 +274,43 @@ def model_emis(e):
     return emis
 
 
-def lampuse_main():
-    """Exotic lamp two squares south of the door at 21:00. Walk down against it, A switches it off (no warm
-    emission), A again switches it back on; the game keeps running (a switch sound once froze it)."""
-    save = prepare_save(PROJECT / "build" / "test_furniture_lampuse.sav", edits=dict(bells=50000),
-                        grid={tile_off(9, 11, 9): 0x301C}, pokes={0x15FB4: struct.pack("<i", 9 * 60)})
-    with Emu(ROM_PLUS, str(save), tag="ftru") as e:
+def lamp_crop(path):
+    from PIL import Image
+    return Image.open(path).crop((96, 192 + 120, 160, 192 + 176))   # town screen, around the lamp below the player
+
+
+def crop_diff(p1, p2):
+    from PIL import ImageChops
+    d = ImageChops.difference(lamp_crop(p1).convert("RGB"), lamp_crop(p2).convert("RGB")).convert("L")
+    return sum(1 for v in d.getdata() if v > 24)
+
+
+def lampuse_main(when="night"):
+    """Exotic lamp two squares south of the door (21:00, or 12:00 with "day"). Walk down against it: A switches
+    it off (its shade turns dark: many pixels around the lamp change), A again switches it back on (the lamp looks
+    as at the start); the game keeps running (a switch sound once froze it)."""
+    pokes = {0x15FB4: struct.pack("<i", 9 * 60)} if when == "night" else {}
+    save = prepare_save(PROJECT / "build" / f"test_furniture_lampuse_{when}.sav", edits=dict(bells=50000),
+                        grid={tile_off(9, 11, 9): 0x301C}, pokes=pokes)
+    with Emu(ROM_PLUS, str(save), tag=f"ftru_{when}") as e:
         e.boot_to_town()
         e.wait(300)
         x, z = walk_until(e, "down", 2, 58.0, max_frames=300)
+        e.wait(30)
         print(f"  facing the lamp: x={x:.2f} z={z:.2f}")
-        on0 = model_emis(e).get(7)
+        on0 = e.shot("80_lamp_on")
         e.press("a", hold=6, after=60)
-        off = model_emis(e).get(7)
         g0 = e.u32(0x021F7E10)
         e.wait(60)
         alive = e.u32(0x021F7E10) - g0
-        e.shot("81_lamp_switched_off")
-        e.press("a", hold=6, after=60)
-        on1 = model_emis(e).get(7)
-        e.shot("82_lamp_switched_on")
-        print(f"  lamp emission: start={on0} after A={off} after A again={on1} (warm = {0x4B9F}); "
+        off = e.shot("81_lamp_switched_off")
+        e.press("a", hold=6, after=90)
+        on1 = e.shot("82_lamp_switched_on")
+        d_off, d_back = crop_diff(on0, off), crop_diff(on0, on1)
+        print(f"  pixels changed around the lamp: on->off {d_off}, start->back on {d_back}; "
               f"game frames in 60 vblanks after the first A: {alive}")
-        ok = on0 == 0x4B9F and off is not None and off != 0x4B9F and on1 == 0x4B9F and alive > 10
-        print(f"  RESULT A switches a lamp off and on: {'PASS' if ok else 'FAIL'}")
-
+        ok = d_off > 300 and d_back < d_off // 4 and alive > 10
+        print(f"  RESULT A switches a lamp off and on ({when}): {'PASS' if ok else 'FAIL'}")
 
 def sit_main(piece="chair"):
     """Two squares south of the door, the player faces square (11,9). chair: an exotic chair (model 4, facing 3) on
@@ -383,10 +371,8 @@ def main():
         return ghost_main()
     if sys.argv[1:2] == ["sit"]:
         return sit_main(*sys.argv[2:3])
-    if sys.argv[1:] == ["lampuse"]:
-        return lampuse_main()
-    if sys.argv[1:] == ["lamp"]:
-        return lamp_main()
+    if sys.argv[1:2] == ["lampuse"]:
+        return lampuse_main(*sys.argv[2:3])
     if sys.argv[1:] == ["treedrop"]:
         return treedrop_main()
     for lx, lz, it in YARD:
