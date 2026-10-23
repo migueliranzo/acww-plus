@@ -27,7 +27,7 @@ goes here.
 - Layout at `0x0229F9A0`: `'AWHP'`, then export pointers (the `HX_*` slots in `src/code_home.h`, in the order of
   `HX_EXPORTS` in `tools/build_rom.py`), then code and data. `hx_ready()` checks the magic.
 
-## Why not a heap block (the first version, commit 9cc81c9)
+## Why not a heap block (the first version, commit 3c00cd8)
 That version loaded `/zplus/code.bin` into a root-heap block on first use, with relocations and an I-cache
 invalidate. It worked, but it needed a runtime allocation that could fail, a 64 KB free-block check, a new NitroFS
 file, and a guard against the block going stale if the heap were rebuilt. The arena shift costs the same RAM

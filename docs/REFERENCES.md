@@ -84,7 +84,7 @@ Abbreviations: `RUNS` = `C:\NDS_RECOMP\prototype\runs`, `CGD` = `E:\claudeGameDe
 - **Code home (2026-10-20):** `0x0229F9A0..0x022A19A0` (8 KB), the start of the SDK main arena, moved up by patching
   the SDK literal at `0x02117BD8`. `src/heap/*.c` is linked there and shipped as an extra autoload (index 3; the main
   BSS clear becomes index 4). ~4.9 KB free. Details and reasoning: `docs/features/code_home.md`.
-  - Chosen over a root-heap block loaded from a file (commit 9cc81c9): same RAM cost, but no runtime allocation, no
+  - Chosen over a root-heap block loaded from a file (commit 3c00cd8): same RAM cost, but no runtime allocation, no
     relocation, no lifetime handling.
 - Memory map facts: main BSS `0x0213FAA0..0x02203D20`, then the overlay slots (ov001 at `0x02203D20`); the highest
   overlay end is ov098's, `0x0229F9A0` (= the vanilla main arena lo). Boot fills the overlay region up to there with
