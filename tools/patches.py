@@ -88,3 +88,11 @@ PATCHES = [
     ("ov123", 0x02295E58, "bytes", "0129", "0029", "editor L: cmp r1,#1 -> #0 (1 -> 0 -> 15)"),
     ("ov123", 0x02295E90, "bytes", "0121", "0021", "editor R: wrap 15 -> 0 (was -> 1)"),
 ]
+
+
+# Release build (tools/build_rom.py --release): these hooks are left out, so the game runs its own code there.
+# Outdoor sitting (and the indoor sit actions' trampolines) and lamp switching are not released yet: sitting is
+# not hardware-tested (indoor chairs go through the trampolines too), lamp switching is new. Both are reached
+# only through hook 7 (the outdoor A handler) and the sit action-table entries.
+RELEASE_DISABLED = {"hook_ov003_act_on_target"} | {
+    f"sit_{kind}_{aid}" for kind in ("start", "tick", "exit", "remote") for aid in ("25", "28", "2C")}

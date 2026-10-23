@@ -31,7 +31,7 @@ from _client import DebugClient  # noqa: E402
 from PIL import Image  # noqa: E402
 
 PROJECT = Path(r"e:\acww-plus")
-ROM_PLUS = str(PROJECT / "build" / "acww_plus.nds")
+ROM_PLUS = os.environ.get("ACWW_ROM") or str(PROJECT / "build" / "acww_plus.nds")   # ACWW_ROM: e.g. the release ROM
 ROM_VANILLA = r"E:\claudeGameDecomp\0389 - Animal Crossing - Wild World (E)(Legacy).nds"
 VANILLA_SAV = r"C:\NDS_RECOMP\animalcrossingwwrecomp\scenarios\saves\d25.sav"
 LOAD_SAVE_SCN = r"C:\NDS_RECOMP\animalcrossingwwrecomp\scenarios\acww_load_save.json"

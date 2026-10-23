@@ -285,7 +285,7 @@ def crop_diff(p1, p2):
     return sum(1 for v in d.getdata() if v > 24)
 
 
-def lampuse_main(when="night"):
+def lampuse_main(when="night", mode="on"):
     """Exotic lamp two squares south of the door (21:00, or 12:00 with "day"). Walk down against it: A switches
     it off (its shade turns dark: many pixels around the lamp change), A again switches it back on (the lamp looks
     as at the start); the game keeps running (a switch sound once froze it)."""
@@ -309,10 +309,14 @@ def lampuse_main(when="night"):
         d_off, d_back = crop_diff(on0, off), crop_diff(on0, on1)
         print(f"  pixels changed around the lamp: on->off {d_off}, start->back on {d_back}; "
               f"game frames in 60 vblanks after the first A: {alive}")
+        if mode == "off":   # release build: no lamp switching
+            ok = d_off < 50 and alive > 10
+            print(f"  RESULT release build: A on a lamp changes nothing ({when}): {'PASS' if ok else 'FAIL'}")
+            return
         ok = d_off > 300 and d_back < d_off // 4 and alive > 10
         print(f"  RESULT A switches a lamp off and on ({when}): {'PASS' if ok else 'FAIL'}")
 
-def sit_main(piece="chair"):
+def sit_main(piece="chair", mode="on"):
     """Two squares south of the door, the player faces square (11,9). chair: an exotic chair (model 4, facing 3) on
     it. bench: an exotic bench (2-square, facing 1) anchored at (11,10), so (11,9) is its second square (0xF031).
     A with empty hands sits the player there (actions 0x25 -> 0x28, position = the square's centre); Up stands them
@@ -348,6 +352,10 @@ def sit_main(piece="chair"):
         e.shot("91_stood_up")
         print(f"  stood at ({x0:.2f},{z0:.2f}); sitting at ({x1/8192:.2f},{z1/8192:.2f}) angle={ang:#06x}; "
               f"after Up ({x2/8192:.2f},{z2/8192:.2f}); actions {[hex(v) for v in seen]}; game frames {alive}/30")
+        if mode == "off":   # release build: no sitting
+            ok = 0x25 not in seen and 0x28 not in seen and alive > 5
+            print(f"  RESULT release build: A on a {piece} does not sit: {'PASS' if ok else 'FAIL'}")
+            return
         sat = 0x25 in seen and 0x28 in seen and abs(x1 / 8192 - 43.5) < 0.05 and abs(z1 / 8192 - 57.5) < 0.05
         print(f"  RESULT A on a {piece} sits the player on it: {'PASS' if sat and alive > 5 else 'FAIL'}")
         up = 0x2C in seen and seen[-1] not in (0x25, 0x28, 0x2C) and abs(z2 / 8192 - z0) < 0.6
@@ -370,9 +378,9 @@ def main():
     if sys.argv[1:] == ["ghost"]:
         return ghost_main()
     if sys.argv[1:2] == ["sit"]:
-        return sit_main(*sys.argv[2:3])
+        return sit_main(*sys.argv[2:4])
     if sys.argv[1:2] == ["lampuse"]:
-        return lampuse_main(*sys.argv[2:3])
+        return lampuse_main(*sys.argv[2:4])
     if sys.argv[1:] == ["treedrop"]:
         return treedrop_main()
     for lx, lz, it in YARD:

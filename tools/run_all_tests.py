@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """Runs every headless test against build/acww_plus.nds (sequentially: they share an emulator port) and prints
-the RESULT lines. usage: py -3.12 tools/run_all_tests.py"""
+the RESULT lines. usage: py -3.12 tools/run_all_tests.py [--release]
+--release: against build/acww_plus_release.nds (tools/build_rom.py --release); the sitting and lamp-switching
+tests are replaced by checks that those features are off."""
+import os
 import subprocess
 import sys
 import time
@@ -26,9 +29,17 @@ TESTS = [
 ]
 
 
+RELEASE_OFF = {("test_furniture.py", "sit"), ("test_furniture.py", "lampuse")}
+
+
 def main():
     summary = []
-    for t in TESTS:
+    tests = TESTS
+    if "--release" in sys.argv:
+        os.environ["ACWW_ROM"] = str(T.parent / "build" / "acww_plus_release.nds")
+        tests = [t + ["off"] if tuple(t[:2]) in RELEASE_OFF else t for t in TESTS]
+        tests = [t for t in tests if not (tuple(t[:2]) in RELEASE_OFF and t[2] in ("bench", "day"))]
+    for t in tests:
         t0 = time.time()
         r = subprocess.run([sys.executable, str(T / t[0])] + t[1:], capture_output=True, text=True)
         lines = [l.strip() for l in r.stdout.splitlines() if "RESULT" in l]

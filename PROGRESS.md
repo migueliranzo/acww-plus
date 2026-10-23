@@ -50,6 +50,17 @@ Build: `py -3.12 tools/build_rom.py` → `build/acww_plus.nds`. Headless tests: 
 - **Known limits:** no sound for lamp switching or sitting outdoors; no lying on beds outdoors; sitting is off while
   other players are in town.
 
+## Alpha release (2026-10-23)
+- Release build: `tools/build_rom.py --release` leaves out sitting and lamp switching (hooks only; see
+  `docs/RELEASE.md`). `tools/run_all_tests.py --release`: 25/25. Patch: `tools/make_patch.py alpha1` →
+  `build/release/acww_plus_alpha1.bps` (1.08 MB, BPS, base CRC32 C677970C, self-checked). Player README:
+  `docs/release/README.md`.
+- Owner flashcart checks passed: tree drops land as leaves; no ghost square after picking up a 2-square piece.
+- **US version:** not supported. A port needs a US dump (none in the reference folders) and a remap of 54 patch
+  sites, ~130 code/data addresses and the build constants (ITCM payload, arena literal, autoload base, action
+  tables), plus a US test save for the harness. Most of the remap could be done by matching EU function bytes in
+  the US binary. Estimate: a few sessions, then a full test pass.
+
 ## Log
 - 2026-10-22: lamp switching reworked (shade goes dark when off): the emission-based version changed nothing on
   screen (owner report). Night glow removed.

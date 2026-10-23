@@ -25,6 +25,8 @@ OBJ_O = ROOT_DIR / "build" / "acww_plus.o"
 PAYLOAD_BIN = ROOT_DIR / "build" / "payload_itcm.bin"
 EXTRACTED_DIR = ROOT_DIR / "build" / "extracted"
 OUT_ROM = ROOT_DIR / "build" / "acww_plus.nds"
+RELEASE_ROM = ROOT_DIR / "build" / "acww_plus_release.nds"
+RELEASE = "--release" in sys.argv   # leaves out the hooks of unreleased features (patches.RELEASE_DISABLED)
 
 VANILLA_EXTRACTED = Path(r"E:\claudeGameDecomp\extracted")
 DSD_EXE = Path(r"E:\claudeGameDecomp\dsd-windows-x86_64.exe")
@@ -222,11 +224,14 @@ def module_info():
 
 
 def apply_patches(syms):
-    from patches import PATCHES
+    from patches import PATCHES, RELEASE_DISABLED
     mods = module_info()
     data = {}
     skip = [x for x in os.environ.get("ACWW_SKIP", "").split(",") if x]   # experiments: skip patches by value
     for mod, addr, kind, expect, value, note in PATCHES:
+        if RELEASE and value in RELEASE_DISABLED:
+            print(f"      OFF   {mod} 0x{addr:08X} {value} (not in the release build)")
+            continue
         if "*" in skip or any(x in str(value) for x in skip):
             print(f"      SKIP  {mod} 0x{addr:08X} {value}")
             continue
@@ -349,6 +354,10 @@ def build_heap_code(itcm_syms):
 
 
 def main():
+    global OUT_ROM
+    if RELEASE:
+        OUT_ROM = RELEASE_ROM
+        print(f"      Release build -> {OUT_ROM.name}")
     files = write_unity_source()
     print(f"      Sources: {', '.join(p.name for p in files)}")
     compile_c_source()
