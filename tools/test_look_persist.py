@@ -2,11 +2,11 @@
 """Saved look persists (ndsref): a save with a chosen base tone 3 (PostOffice pad nibble = 4), a faded tan 0 and
 red shoes boots into town with tan 3 restored by the player_tan_level floor; compared with vanilla skin."""
 import sys
-sys.path.insert(0, r"e:\acww-plus\tools")
+sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parent))
 from harness import *  # noqa
 from PIL import Image
 
-REC0 = 0x021DAA04
+REC0 = A(0x021DAA04)
 
 
 def face_rgb(p):
@@ -21,7 +21,7 @@ def main():
     res = []
     shots = {}
     for tag, pokes in (("base", {}), ("tone3", {0x14FCA: b"\x04\x00", 0x1DE5: b"\x01"})):
-        save = prepare_save(PROJECT / "build" / f"test_persist_{tag}.sav", pokes=pokes)
+        save = prepare_save(BUILD / f"test_persist_{tag}.sav", pokes=pokes)
         with Emu(ROM_PLUS, str(save), tag=f"persist_{tag}") as e:
             e.boot_to_town()
             e.wait(300)

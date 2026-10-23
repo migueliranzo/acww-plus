@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Tree shake with a rod / net equipped (ndsref). The tree at acre 9 (12,14) is south of the player's house."""
 import sys
-sys.path.insert(0, r"e:\acww-plus\tools")
+sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parent))
 from harness import *  # noqa
 
 ROD, NET = 0x1374, 0x1376
@@ -23,7 +23,7 @@ def watch_actions(e, frames):
 
 def run(tool, rom, tag):
     tree_off = 0xC354 + 9 * 512 + (9 * 16 + 11) * 2      # acre 9 (11,9): two squares south of the door
-    save = prepare_save(PROJECT / "build" / f"test_shake_{tag}.sav", edits=dict(items=[tool]), grid={tree_off: 0x002A})
+    save = prepare_save(BUILD / f"test_shake_{tag}.sav", edits=dict(items=[tool]), grid={tree_off: 0x002A})
     with Emu(rom, str(save), tag=f"shake_{tag}") as e:
         e.boot_to_town()
         e.wait(300)
@@ -39,7 +39,7 @@ def run(tool, rom, tag):
             e.press("a", hold=4, after=80)
             e.press("a", hold=4, after=80)   # first menu entry: equip / hold
             e.press("b", hold=6, after=120)
-        rec = 0x021DA9F8 + 0xC + 0x228C * e.u32(e.u32(0x020CC0C8) + 0x68)
+        rec = A(0x021DA9F8) + 0xC + 0x228C * e.u32(e.u32(A(0x020CC0C8)) + 0x68)
         print(f"  [{tag}] hand={e.u16(rec + 0x220A):#06x} action={action(e):#x}")
         e.press("a", hold=6)
         seen = watch_actions(e, 120)

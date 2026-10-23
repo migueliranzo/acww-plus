@@ -1,6 +1,9 @@
 # AC:WW+ reference map (read-only sources)
 
 Target: Animal Crossing: Wild World, EU `ADMP`. **Never write into `C:\NDS_RECOMP` or `E:\claudeGameDecomp`.**
+Everything below is EU. The US build (`ADME`, `--region us`) maps EU addresses through `tools/regions/adme.py`;
+see "US version" in `docs/RELEASE.md`. To find a US address, find the EU one here, then rerun
+`tools/remap_region.py us`.
 Abbreviations: `RUNS` = `C:\NDS_RECOMP\prototype\runs`, `CGD` = `E:\claudeGameDecomp`.
 
 ## Build inputs

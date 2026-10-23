@@ -23,6 +23,7 @@ REGIONS = {
         "vanilla": Path(r"E:\claudeGameDecomp\extracted"),
         "clean_rom": Path(r"E:\claudeGameDecomp\0389 - Animal Crossing - Wild World (E)(Legacy).nds"),
         "clean_crc32": 0xC677970C,
+        "save_magic": 0xC5,                   # byte 0 of a save block (func_0209e500)
         "langs": ["ENG", "FRN", "GER", "ITA", "SPN"],
         "ftr_info": "ftr_info/ENG",           # the English furniture info (the test reads it)
         "suffix": "",                         # build output names: acww_plus<suffix>.nds
@@ -33,6 +34,7 @@ REGIONS = {
         "clean_rom": Path(os.environ.get("ACWW_US_ROM", r"E:\Users\Migue\Downloads\0223 - Animal Crossing - Wild World "
                                          r"(U)(SCZ)\0223 - Animal Crossing - Wild World (U)(SCZ).nds")),
         "clean_crc32": 0xF24508AA,
+        "save_magic": 0x8A,                   # the same check, US 0x0209DEFC
         "langs": ["ENG"],
         "ftr_info": "ftr_info",
         "suffix": "_us",

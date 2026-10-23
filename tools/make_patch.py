@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 """
-Makes the release patch: a BPS patch from the clean EU ROM to build/acww_plus_release.nds, checks it by applying it
-again, and writes the hashes players need.
+Makes the release patch: a BPS patch from the clean ROM to the release build, checks it by applying it again, and
+writes the hashes players need.
 
-usage: py -3.12 tools/make_patch.py [VERSION]          (default version "alpha")
-  -> build/release/acww_plus_<VERSION>.bps, build/release/hashes.txt, build/release/README.md (docs/release/)
+usage: py -3.12 tools/make_patch.py [VERSION] [--region eu|us]          (default version "alpha", region eu)
+  eu -> build/release/acww_plus_<VERSION>.bps, hashes.txt, README.md (docs/release/README.md),
+        from build/acww_plus_release.nds
+  us -> build/release/acww_plus_<VERSION>_us.bps, hashes_us.txt, README_US.md (docs/release/README_US.md),
+        from build/us/acww_plus_release.nds (tools/build_rom.py --release --region us)
 
 BPS (byuu's format) stores the source and target CRC32, so patchers refuse a wrong base ROM. Players apply it with
 Rom Patcher JS (web), Flips or beat. The encoder is a plain greedy one: it follows the current source offset while
@@ -18,9 +21,16 @@ import zlib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-CLEAN_ROM = Path(r"E:\claudeGameDecomp\0389 - Animal Crossing - Wild World (E)(Legacy).nds")
-TARGET_ROM = ROOT / "build" / "acww_plus_release.nds"
+sys.path.insert(0, str(ROOT / "tools"))
+import regions  # noqa: E402
+
+REGION = sys.argv[sys.argv.index("--region") + 1] if "--region" in sys.argv else "eu"
+INFO = regions.REGIONS[REGION]
+CLEAN_ROM = INFO["clean_rom"]
+TARGET_ROM = regions.build_dir(ROOT, REGION) / "acww_plus_release.nds"
 OUT_DIR = ROOT / "build" / "release"
+SUFFIX = INFO["suffix"]                     # "" (EU), "_us"
+README = "README.md" if REGION == "eu" else f"README{SUFFIX.upper()}.md"
 
 BLOCK = 32          # bytes per index block (source, aligned)
 MIN_MATCH = 32      # shorter matches are written as literal bytes
@@ -162,24 +172,29 @@ def hashes(label, data):
 
 
 def main():
-    version = sys.argv[1] if len(sys.argv) > 1 else "alpha"
+    args = [a for i, a in enumerate(sys.argv[1:], 1) if a != "--region" and sys.argv[i - 1] != "--region"]
+    version = args[0] if args else "alpha"
     src = CLEAN_ROM.read_bytes()
     tgt = TARGET_ROM.read_bytes()
-    if src[0x0C:0x10] != b"ADMP":
-        raise SystemExit(f"{CLEAN_ROM} is not the EU ROM (game code {src[0x0C:0x10]!r}, expected ADMP)")
+    if src[0x0C:0x10] != INFO["code"].encode():
+        raise SystemExit(f"{CLEAN_ROM} is not the {INFO['title']} ROM (game code {src[0x0C:0x10]!r}, "
+                         f"expected {INFO['code']})")
+    if zlib.crc32(src) != INFO["clean_crc32"]:
+        raise SystemExit(f"{CLEAN_ROM}: CRC32 {zlib.crc32(src):08X}, expected {INFO['clean_crc32']:08X}")
     patch = make_bps(src, tgt)
     if apply_bps(src, patch) != tgt:
         raise SystemExit("self-check failed: the patch does not rebuild the release ROM")
     OUT_DIR.mkdir(parents=True, exist_ok=True)
-    out = OUT_DIR / f"acww_plus_{version}.bps"
+    out = OUT_DIR / f"acww_plus_{version}{SUFFIX}.bps"
     out.write_bytes(patch)
-    (OUT_DIR / "hashes.txt").write_text(
-        hashes("Clean ROM to patch: Animal Crossing: Wild World, Europe (game code ADMP)", src) + "\n" +
-        hashes(f"Patched ROM (AC:WW+ {version})", tgt) + "\n" + hashes(f"Patch file {out.name}", patch),
+    hashes_txt = OUT_DIR / f"hashes{SUFFIX}.txt"
+    hashes_txt.write_text(
+        hashes(f"Clean ROM to patch: {INFO['title']} (game code {INFO['code']})", src) + "\n" +
+        hashes(f"Patched ROM (AC:WW+ {version}{SUFFIX})", tgt) + "\n" + hashes(f"Patch file {out.name}", patch),
         encoding="utf-8")
-    (OUT_DIR / "README.md").write_bytes((ROOT / "docs" / "release" / "README.md").read_bytes())
-    print(f"{out} ({len(patch):,} bytes), self-check passed; README.md copied")
-    print((OUT_DIR / "hashes.txt").read_text(encoding="utf-8"))
+    (OUT_DIR / README).write_bytes((ROOT / "docs" / "release" / README).read_bytes())
+    print(f"{out} ({len(patch):,} bytes), self-check passed; {README} copied")
+    print(hashes_txt.read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":
