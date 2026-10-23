@@ -61,6 +61,10 @@ Build: `py -3.12 tools/build_rom.py` → `build/acww_plus.nds`. Headless tests: 
   tables), plus a US test save for the harness. Most of the remap could be done by matching EU function bytes in
   the US binary. Estimate: a few sessions, then a full test pass.
 
+- **Both regions released as alpha1 (2026-10-23):** EU `acww_plus_alpha1.bps` (base CRC32 C677970C, hardware-tested
+  by the owner) and US `acww_plus_alpha1_us.bps` (base ADME rev 0, CRC32 F24508AA, emulator-tested only: --release
+  suite 25/25 on both). The US port maps the EU addresses through `tools/regions/adme.py` (`tools/remap_region.py`).
+
 ## Log
 - 2026-10-22: lamp switching reworked (shade goes dark when off): the emission-based version changed nothing on
   screen (owner report). Night glow removed.
