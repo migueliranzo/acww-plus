@@ -35,7 +35,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "tools"))
 import regions  # noqa: E402
 
-ADDR_RE = re.compile(r"0x0[12][0-9A-Fa-f]{6}\b")
+ADDR_RE = regions.ADDR_RE
 
 # Overlay-range addresses in the sources: which overlay they are in (the ranges of overlays overlap).
 OVERLAY_HINTS = {
@@ -56,9 +56,7 @@ BYTE_BRANCHES = [("ov003", 0x022212C6, 0x022212FA)]
 IDENTITY = {0x02000000, 0x02400000}
 
 
-def strip_c_comments(text):
-    text = re.sub(r"/\*.*?\*/", " ", text, flags=re.S)
-    return re.sub(r"//[^\n]*", " ", text)
+strip_c_comments = regions.strip_c_comments
 
 
 def strip_py_comments(text):

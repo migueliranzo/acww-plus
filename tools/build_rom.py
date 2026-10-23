@@ -1,12 +1,19 @@
 #!/usr/bin/env python3
 """
-Builds the AC:WW+ ROM (e:/acww-plus/build/acww_plus.nds).
+Builds the AC:WW+ ROM (build/acww_plus.nds; the US build: build/us/acww_plus.nds).
+
+usage: py -3.12 tools/build_rom.py [--release] [--region eu|us]
 
 1. Compiles every src/*.c as one unit (build/acww_plus_unity.c) with Metrowerks mwccarm.exe.
 2. Links the ELF object at 0x01FFDC00 (unused ITCM tail) and writes build/payload.map.
-3. Copies fresh vanilla arm9/overlay binaries from E:/claudeGameDecomp/extracted (read only), appends the
+3. Copies fresh vanilla arm9/overlay binaries from the region's vanilla files (read only), appends the
    payload to itcm.bin, and applies tools/patches.py (each patch checks the vanilla bytes first).
 4. Runs dsd rom build.
+
+Regions (tools/regions/): the sources and tools/patches.py are written with EU (ADMP) addresses. --region us
+(Animal Crossing: Wild World USA, ADME) builds into build/us/: it compiles copies of the sources with every
+address replaced through tools/regions/adme.py (made by tools/remap_region.py), and maps each patch's module,
+address and expected bytes the same way. The EU build (the default) is unchanged.
 """
 
 import os
@@ -19,17 +26,26 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-ROOT_DIR = Path(r"e:\acww-plus")
-UNITY_C = ROOT_DIR / "build" / "acww_plus_unity.c"
-OBJ_O = ROOT_DIR / "build" / "acww_plus.o"
-PAYLOAD_BIN = ROOT_DIR / "build" / "payload_itcm.bin"
-EXTRACTED_DIR = ROOT_DIR / "build" / "extracted"
-OUT_ROM = ROOT_DIR / "build" / "acww_plus.nds"
-RELEASE_ROM = ROOT_DIR / "build" / "acww_plus_release.nds"
+import regions  # noqa: E402
+
+ROOT_DIR = Path(__file__).resolve().parent.parent
+REGION = sys.argv[sys.argv.index("--region") + 1] if "--region" in sys.argv else "eu"
+if REGION not in regions.REGIONS:
+    sys.exit(f"unknown region {REGION!r} (one of {', '.join(regions.REGIONS)})")
+BUILD_DIR = regions.build_dir(ROOT_DIR, REGION)       # build/ (EU), build/us/
+UNITY_C = BUILD_DIR / "acww_plus_unity.c"
+OBJ_O = BUILD_DIR / "acww_plus.o"
+PAYLOAD_BIN = BUILD_DIR / "payload_itcm.bin"
+EXTRACTED_DIR = BUILD_DIR / "extracted"
+OUT_ROM = BUILD_DIR / "acww_plus.nds"
+RELEASE_ROM = BUILD_DIR / "acww_plus_release.nds"
 RELEASE = "--release" in sys.argv   # leaves out the hooks of unreleased features (patches.RELEASE_DISABLED)
 
-VANILLA_EXTRACTED = Path(r"E:\claudeGameDecomp\extracted")
-DSD_EXE = Path(r"E:\claudeGameDecomp\dsd-windows-x86_64.exe")
+VANILLA_EXTRACTED = regions.REGIONS[REGION]["vanilla"]
+DSD_EXE = regions.DSD_EXE
+# Another region: EU address -> its address, EU patch address -> its vanilla bytes there (None, None for the EU)
+REGION_ADDR, REGION_EXPECT = regions.address_table(REGION)
+OVERLAY_MAP = regions.overlay_map(REGION)
 MWCCARM_EXE = Path(r"C:\NDS_RECOMP\nds-docs\pokemon_dp\sdk\cw\ARM_Tools\Command_Line_Tools\mwccarm.exe")
 
 ITCM_BASE_ADDR = 0x01FF8000
@@ -38,7 +54,6 @@ PAYLOAD_BASE_ADDR = ITCM_BASE_ADDR + PAYLOAD_OFFSET_IN_ITCM  # 0x01FFDC00
 ITCM_END_ADDR = 0x02000000
 
 ARM9_BASE_ADDR = 0x02000000
-OV003_BASE_ADDR = 0x02207F60
 
 
 def encode_thumb_bl(src_addr: int, target_addr: int) -> bytes:
@@ -54,7 +69,7 @@ def encode_thumb_bl(src_addr: int, target_addr: int) -> bytes:
     return struct.pack("<HH", hw1, hw2)
 
 
-def compile_c_source(unity=None, obj=None):
+def compile_c_source(unity=None, obj=None, include_dir=None):
     unity = unity or UNITY_C
     obj = obj or OBJ_O
     cmd = [
@@ -68,7 +83,7 @@ def compile_c_source(unity=None, obj=None):
         "-o", str(obj),
     ]
     env = os.environ.copy()
-    env["MWCIncludes"] = str(ROOT_DIR / "src")
+    env["MWCIncludes"] = str(include_dir or SRC_DIR)
     env["LM_LICENSE_FILE"] = str(MWCCARM_EXE.parents[2] / "license.dat")
     print(f"[1/4] Compiling {unity.name} with mwccarm.exe...")
     res = subprocess.run(cmd, cwd=str(ROOT_DIR), env=env, capture_output=True, text=True)
@@ -229,6 +244,11 @@ def apply_patches(syms):
     data = {}
     skip = [x for x in os.environ.get("ACWW_SKIP", "").split(",") if x]   # experiments: skip patches by value
     for mod, addr, kind, expect, value, note in PATCHES:
+        if REGION_ADDR is not None:      # EU module, address and bytes -> this region's
+            if addr not in REGION_ADDR or addr not in REGION_EXPECT:
+                raise RuntimeError(f"{mod} 0x{addr:08X} is not in the {REGION} address table (tools/remap_region.py)")
+            mod = f"ov{OVERLAY_MAP[int(mod[2:])]:03d}" if mod.startswith("ov") else mod
+            addr, expect = REGION_ADDR[addr], REGION_EXPECT[addr]
         if RELEASE and value in RELEASE_DISABLED:
             print(f"      OFF   {mod} 0x{addr:08X} {value} (not in the release build)")
             continue
@@ -266,10 +286,12 @@ def apply_patches(syms):
 
 def apply_file_patches():
     """Restores the files edited by the previous build, then applies tools/file_patches.py on fresh copies."""
+    import file_patches
     from file_patches import FILE_PATCHES
+    file_patches.LANGS = regions.REGIONS[REGION]["langs"]
     src = VANILLA_EXTRACTED / "files"
     dst = EXTRACTED_DIR / "files"
-    log = ROOT_DIR / "build" / "files_modified.txt"
+    log = BUILD_DIR / "files_modified.txt"
     if log.exists():
         for rel in log.read_text().split():
             shutil.copyfile(src / rel, dst / rel)
@@ -281,22 +303,46 @@ def apply_file_patches():
     log.write_text(chr(10).join(done) + chr(10))
 
 
+def region_sources():
+    """The source tree to compile: src/ itself for the EU. Another region compiles a copy (BUILD_DIR/src) with every
+    address replaced through its table; an address in the code that the table lacks stops the build."""
+    src = ROOT_DIR / "src"
+    if REGION_ADDR is None:
+        return src
+    out = BUILD_DIR / "src"
+    for p in sorted(src.rglob("*")):
+        if p.suffix not in (".c", ".h"):
+            continue
+        rel = p.relative_to(src)
+        text = regions.translate_c(p.read_text(encoding="utf-8"), REGION_ADDR, f"src/{rel.as_posix()}")
+        (out / rel).parent.mkdir(parents=True, exist_ok=True)
+        if not (out / rel).exists() or (out / rel).read_text(encoding="utf-8") != text:
+            (out / rel).write_text(text, encoding="utf-8")
+    return out
+
+
+SRC_DIR = ROOT_DIR / "src"     # set by main(): region_sources()
+
+
 def write_unity_source():
     """All src/*.c compiled as one translation unit (one ELF for the tiny linker)."""
-    files = sorted(p for p in (ROOT_DIR / "src").glob("*.c"))
+    files = sorted(p for p in SRC_DIR.glob("*.c"))
     UNITY_C.write_text("".join(f'#include "{p.as_posix()}"' + chr(10) for p in files))
     return files
 
 
-HEAP_UNITY_C = ROOT_DIR / "build" / "acww_heap_unity.c"
-HEAP_OBJ_O = ROOT_DIR / "build" / "acww_heap.o"
-# Code home: the SDK's main arena (and so the root heap) starts at 0x0229F9A0, right after the highest overlay (ov098).
-# We move the arena start up by HEAP_CODE_RESERVE and put src/heap/*.c there as an extra autoload block, which the
-# crt0 copies in at boot like the ITCM payload (see docs/features/code_home.md).
-HEAP_CODE_BASE = 0x0229F9A0
+HEAP_UNITY_C = BUILD_DIR / "acww_heap_unity.c"
+HEAP_OBJ_O = BUILD_DIR / "acww_heap.o"
+# Code home: the SDK's main arena (and so the root heap) starts right after the highest overlay (EU: 0x0229F9A0,
+# the end of ov098). We move the arena start up by HEAP_CODE_RESERVE and put src/heap/*.c there as an extra autoload
+# block, which the crt0 copies in at boot like the ITCM payload (see docs/features/code_home.md).
+regions.make_vanilla(REGION)            # the US files are extracted from the owner's dump on first use
+_CONSTS = regions.build_constants(REGION)
+HEAP_CODE_BASE = _CONSTS["HEAP_CODE_BASE"]              # EU 0x0229F9A0
 HEAP_CODE_RESERVE = 0x2000
-ARENA_LO_LITERAL = 0x02117BD8          # unk_autoload_2: SDK main arena lo (OS_InitArena / OS_GetInitArenaLo)
-AUTOLOAD2_BASE = 0x020E8180
+ARENA_LO_LITERAL = _CONSTS["ARENA_LO_LITERAL"]          # EU 0x02117BD8, unk_autoload_2: SDK main arena lo
+                                                        # (OS_InitArena / OS_GetInitArenaLo)
+AUTOLOAD2_BASE = _CONSTS["AUTOLOAD2_BASE"]              # EU 0x020E8180
 HX_MAGIC = 0x50485741                  # 'AWHP'
 # Export table at HEAP_CODE_BASE: magic, then these, in the order of the HX_* slots in src/code_home.h
 HX_EXPORTS = ["hx_claim_vram", "hx_can_place", "hx_load_model", "hx_is_seat_model", "hx_sit_request", "hx_sit_start",
@@ -305,7 +351,7 @@ HX_EXPORTS = ["hx_claim_vram", "hx_can_place", "hx_load_model", "hx_is_seat_mode
 
 def build_heap_code(itcm_syms):
     """src/heap/*.c -> autoload 4 at HEAP_CODE_BASE; the SDK main arena starts HEAP_CODE_RESERVE later."""
-    files = sorted(p for p in (ROOT_DIR / "src" / "heap").glob("*.c"))
+    files = sorted(p for p in (SRC_DIR / "heap").glob("*.c"))
     HEAP_UNITY_C.write_text("".join(f'#include "{p.as_posix()}"' + chr(10) for p in files))
     compile_c_source(HEAP_UNITY_C, HEAP_OBJ_O)
     table = 4 * (1 + len(HX_EXPORTS))
@@ -338,14 +384,14 @@ def build_heap_code(itcm_syms):
                       "  - index: 4" + chr(10) + "    bin: arm9/bss_autoload.bin" + chr(10) +
                       "    config: arm9/bss_autoload.yaml" + chr(10))
     cfg_path.write_text(cfg)
-    # SDK main arena lo: 0x0229F9A0 -> 0x0229F9A0 + reserve (checked against vanilla)
+    # SDK main arena lo: HEAP_CODE_BASE -> HEAP_CODE_BASE + reserve (checked against vanilla)
     a2 = bytearray((VANILLA_EXTRACTED / "arm9" / "unk_autoload_2.bin").read_bytes())
     off = ARENA_LO_LITERAL - AUTOLOAD2_BASE
     if struct.unpack_from("<I", a2, off)[0] != HEAP_CODE_BASE:
-        raise RuntimeError("unk_autoload_2: arena lo literal is not 0x0229F9A0")
+        raise RuntimeError(f"unk_autoload_2: arena lo literal is not 0x{HEAP_CODE_BASE:08X}")
     struct.pack_into("<I", a2, off, HEAP_CODE_BASE + HEAP_CODE_RESERVE)
     (EXTRACTED_DIR / "arm9" / "unk_autoload_2.bin").write_bytes(a2)
-    (ROOT_DIR / "build" / "heap.map").write_text(chr(10).join(
+    (BUILD_DIR / "heap.map").write_text(chr(10).join(
         f"0x{a:08X} {n}" for n, a in sorted(syms.items(), key=lambda kv: kv[1]) if n and not n.startswith(("@", "."))
         and HEAP_CODE_BASE <= a < HEAP_CODE_BASE + len(blob)) + chr(10))
     print(f"      Heap code: {len(blob)} bytes at 0x{HEAP_CODE_BASE:08X} (autoload 3), "
@@ -354,10 +400,16 @@ def build_heap_code(itcm_syms):
 
 
 def main():
-    global OUT_ROM
+    global OUT_ROM, SRC_DIR
     if RELEASE:
         OUT_ROM = RELEASE_ROM
         print(f"      Release build -> {OUT_ROM.name}")
+    if REGION != "eu":
+        print(f"      Region: {regions.REGIONS[REGION]['title']} -> {BUILD_DIR.relative_to(ROOT_DIR)}")
+    if not (EXTRACTED_DIR / "config.yaml").exists():   # first build here: start from a full vanilla copy
+        print(f"      Copying the vanilla files to {EXTRACTED_DIR}...")
+        shutil.copytree(VANILLA_EXTRACTED, EXTRACTED_DIR, dirs_exist_ok=True)
+    SRC_DIR = region_sources()
     files = write_unity_source()
     print(f"      Sources: {', '.join(p.name for p in files)}")
     compile_c_source()
@@ -367,7 +419,7 @@ def main():
     PAYLOAD_BIN.write_bytes(payload)
     map_lines = [f"0x{a:08X} {n}" for n, a in sorted(syms.items(), key=lambda kv: kv[1])
                  if n and not n.startswith(("@", "."))]
-    (ROOT_DIR / "build" / "payload.map").write_text(chr(10).join(map_lines) + chr(10))
+    (BUILD_DIR / "payload.map").write_text(chr(10).join(map_lines) + chr(10))
 
     end_addr = PAYLOAD_BASE_ADDR + len(payload)
     print(f"      Payload size: {len(payload)} bytes (0x{PAYLOAD_BASE_ADDR:08X} .. 0x{end_addr:08X}), "

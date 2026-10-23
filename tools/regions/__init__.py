@@ -125,6 +125,30 @@ def build_constants(region):
     }
 
 
+def build_dir(root, region):
+    """Where a region's build goes: build/ for the EU (as before regions), build/<region>/ otherwise."""
+    return Path(root) / "build" if region == "eu" else Path(root) / "build" / region
+
+
+ADDR_RE = re.compile(r"0x0[12][0-9A-Fa-f]{6}\b")
+
+
+def strip_c_comments(text):
+    text = re.sub(r"/\*.*?\*/", lambda m: re.sub(r"[^\n]", " ", m.group(0)), text, flags=re.S)
+    return re.sub(r"//[^\n]*", "", text)
+
+
+def translate_c(text, table, name):
+    """C source with every EU address literal in table replaced by the region's (comments too, so they stay
+    true). Raises if the code (comments aside) has a literal the table lacks."""
+    missing = sorted({m.group(0) for m in ADDR_RE.finditer(strip_c_comments(text)) if int(m.group(0), 16) not in table})
+    if missing:
+        raise RuntimeError(f"{name}: no address for {', '.join(missing)} in the region table: rerun "
+                           f"tools/remap_region.py")
+    return ADDR_RE.sub(lambda m: f"0x{table[int(m.group(0), 16)]:08X}" if int(m.group(0), 16) in table
+                       else m.group(0), text)
+
+
 def address_table(region):
     """(ADDR, PATCH_EXPECT) of the region: EU address -> the region's address. The EU's maps to itself."""
     if region == "eu":
