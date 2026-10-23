@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Tree shake with a rod / net equipped (ndsref). The tree at acre 9 (12,14) is south of the player's house."""
 import sys
-sys.path.insert(0, r"e:\acww-plus\tools")
+sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parents[0]))
 from harness import *  # noqa
 
 ROD, NET = 0x1374, 0x1376

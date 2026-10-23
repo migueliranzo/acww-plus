@@ -1,5 +1,5 @@
 """Game frames per 300 vblanks in town (frame counter 0x021F7E10), standing still. usage: fps_probe.py vanilla|plus 0|1 port"""
-import sys; sys.path.insert(0, r"e:\acww-plus\tools")
+import sys; sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parents[1]))
 from harness import *
 which, furn, port = sys.argv[1], sys.argv[2] == "1", int(sys.argv[3])
 grid = {}

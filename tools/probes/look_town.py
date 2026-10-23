@@ -1,4 +1,4 @@
-import sys; sys.path.insert(0, r"e:\acww-plus\tools")
+import sys; sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parents[1]))
 from harness import *
 from PIL import Image
 v = int(sys.argv[1], 16) if len(sys.argv) > 1 else 0x71

@@ -1,5 +1,5 @@
 """Place one furniture item next to the house and check the game keeps running. usage: one_item.py ITEM [port]"""
-import sys; sys.path.insert(0, r"e:\acww-plus\tools")
+import sys; sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parents[1]))
 from harness import *
 item = int(sys.argv[1], 16); port = int(sys.argv[2]) if len(sys.argv) > 2 else 19890
 save = prepare_save(PROJECT / "build" / f"probe_item_{item:04x}.sav", grid={0xC354 + 9 * 512 + (8 * 16 + 12) * 2: item})

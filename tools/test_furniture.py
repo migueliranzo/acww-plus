@@ -8,12 +8,12 @@ usage: test_furniture.py [stage ...]   stages: collide drop house marker pickup,
 """
 import struct
 import sys
-sys.path.insert(0, r"e:\acww-plus\tools")
+sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parents[0]))
 from harness import *  # noqa
 
 GRID_SAVE = 0xC354
 GRID_RAM = SAVE_RAM_BASE + GRID_SAVE
-ALWAYS = open(r"e:\acww-plus\build\extracted\files\ftr_info\ENG\always.bin", "rb").read()
+ALWAYS = open(PROJECT / "build" / "extracted" / "files" / "ftr_info" / "ENG" / "always.bin", "rb").read()
 
 
 def footprint(item):

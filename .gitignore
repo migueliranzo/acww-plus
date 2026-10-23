@@ -1,3 +1,5 @@
 build/
 tools/__pycache__/
 *.pyc
+tools/acww_config.local.json
+vanilla/

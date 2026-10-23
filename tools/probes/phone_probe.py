@@ -1,5 +1,5 @@
 """Exploration: boot to the wake-up screen and try to reach the phone."""
-import json, sys; sys.path.insert(0, r"e:\acww-plus\tools")
+import json, sys; sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parents[1]))
 from harness import *
 save = prepare_save(PROJECT / "build" / "probe_phone.sav")
 steps = sys.argv[1:]  # e.g. a:60 right:30 shot:name

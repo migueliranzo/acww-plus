@@ -1,5 +1,5 @@
 """Boot to town on the plus ROM and print u32 values at the given addresses."""
-import sys; sys.path.insert(0, r"e:\acww-plus\tools")
+import sys; sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parents[1]))
 from harness import *
 addrs = [int(a, 16) for a in sys.argv[1:]]
 save = prepare_save(PROJECT / "build" / "probe_peek.sav")

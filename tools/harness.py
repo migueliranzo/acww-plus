@@ -20,9 +20,12 @@ import sys
 import time
 from pathlib import Path
 
-sys.path.insert(0, r"C:\NDS_RECOMP\prototype\tools")
-sys.path.insert(0, r"C:\NDS_RECOMP\animalcrossingwwrecomp\tools")
-from acww_paths import ROOT, NDSREF  # noqa: E402
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import acww_config  # noqa: E402
+
+sys.path.insert(0, acww_config.get("TEST_TOOLS"))
+sys.path.insert(0, acww_config.get("SAVE_TOOLS"))
+from acww_paths import ROOT, NDSREF  # noqa: E402   (the author's ndsref tools, see tools/acww_config.py)
 from probe_stall import STALL  # noqa: E402
 import acww_save_edit  # noqa: E402
 
@@ -30,11 +33,11 @@ sys.path.insert(0, os.path.join(ROOT, "oracle"))
 from _client import DebugClient  # noqa: E402
 from PIL import Image  # noqa: E402
 
-PROJECT = Path(r"e:\acww-plus")
+PROJECT = acww_config.PROJECT
 ROM_PLUS = os.environ.get("ACWW_ROM") or str(PROJECT / "build" / "acww_plus.nds")   # ACWW_ROM: e.g. the release ROM
-ROM_VANILLA = r"E:\claudeGameDecomp\0389 - Animal Crossing - Wild World (E)(Legacy).nds"
-VANILLA_SAV = r"C:\NDS_RECOMP\animalcrossingwwrecomp\scenarios\saves\d25.sav"
-LOAD_SAVE_SCN = r"C:\NDS_RECOMP\animalcrossingwwrecomp\scenarios\acww_load_save.json"
+ROM_VANILLA = acww_config.get("CLEAN_ROM")
+VANILLA_SAV = acww_config.get("TEST_SAVE")
+LOAD_SAVE_SCN = acww_config.get("LOAD_SAVE_SCENARIO")
 SHOT_DIR = PROJECT / "build" / "screenshots"
 MAP_PATH = PROJECT / "build" / "payload.map"
 

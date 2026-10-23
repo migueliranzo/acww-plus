@@ -1,5 +1,5 @@
 """Yard screenshot (10 furniture pieces) for a given ROM. usage: yard_cmp.py rom tag port"""
-import sys; sys.path.insert(0, r"e:\acww-plus\tools")
+import sys; sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parents[1]))
 from harness import *
 from PIL import Image
 rom, tag, port = sys.argv[1], sys.argv[2], int(sys.argv[3])

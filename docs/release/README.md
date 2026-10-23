@@ -45,5 +45,7 @@ New text is in English in every language for now.
 - If you see a freeze or crash, please report what you were doing, the furniture outdoors nearby, and whether it
   was a flashcart or an emulator (which one).
 
-## Source
-The hack is open source: the code, the build tools and the notes on how everything works.
+## About this release
+A personal project, shared as is: I may fix bugs, but I'm not planning further development. Everything is open
+source, so anyone can take it further.
+Source, issues and updates: https://github.com/migueliranzo/acww-plus

@@ -3,7 +3,7 @@
 Skin tone -> Darker x2 -> Lighter x1 -> This is fine, and checks the tan + the saved base."""
 import json
 import sys
-sys.path.insert(0, r"e:\acww-plus\tools")
+sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parents[0]))
 from harness import *  # noqa
 
 REC0 = 0x021DAA04

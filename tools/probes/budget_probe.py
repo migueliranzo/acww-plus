@@ -1,6 +1,6 @@
 """Town budget probe: VRAM bank control, frame-VRAM texture manager state, 3D polygon / vertex counts per frame,
 and game frame pacing. usage: budget_probe.py vanilla|plus [furniture]"""
-import struct, sys; sys.path.insert(0, r"e:\acww-plus\tools")
+import struct, sys; sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parents[1]))
 from harness import *
 which = sys.argv[1]
 furn = len(sys.argv) > 2

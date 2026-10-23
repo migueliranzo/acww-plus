@@ -3,7 +3,7 @@ Screenshots before and after A, the lamp's material emission, and how many pixel
 usage: py -3.12 tools/probes/lamp_visual.py [day|night|both]"""
 import struct
 import sys
-sys.path.insert(0, r"e:\acww-plus\tools")
+sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parents[1]))
 from harness import *  # noqa
 from PIL import Image, ImageChops
 import test_furniture as tf

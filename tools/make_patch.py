@@ -17,8 +17,11 @@ import sys
 import zlib
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
-CLEAN_ROM = Path(r"E:\claudeGameDecomp\0389 - Animal Crossing - Wild World (E)(Legacy).nds")
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import acww_config  # noqa: E402
+
+ROOT = acww_config.PROJECT
+CLEAN_ROM = Path(acww_config.get("CLEAN_ROM"))
 TARGET_ROM = ROOT / "build" / "acww_plus_release.nds"
 OUT_DIR = ROOT / "build" / "release"
 

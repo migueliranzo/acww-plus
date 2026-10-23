@@ -1,4 +1,4 @@
-import sys; sys.path.insert(0, r"e:\acww-plus\tools")
+import sys; sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parents[1]))
 from harness import *
 save = prepare_save(PROJECT / "build" / "probe_walk.sav")
 def snap(e):

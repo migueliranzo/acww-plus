@@ -4,7 +4,7 @@ Checks in town, after entering the house and after coming back out: the RAM bloc
 (code part; .data/.bss may change), the root heap lies above the reserved block, outdoor furniture models load."""
 import struct
 import sys
-sys.path.insert(0, r"e:\acww-plus\tools")
+sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parents[0]))
 from harness import *  # noqa
 
 BASE, RESERVE = 0x0229F9A0, 0x2000

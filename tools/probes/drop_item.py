@@ -1,6 +1,6 @@
 """Drop an item from pocket slot 1 south of the house, then walk around it; report frame progress.
 usage: drop_item.py ITEM [port]"""
-import sys; sys.path.insert(0, r"e:\acww-plus\tools")
+import sys; sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parents[1]))
 from harness import *
 item = int(sys.argv[1], 16); port = int(sys.argv[2]) if len(sys.argv) > 2 else 19891
 save = prepare_save(PROJECT / "build" / f"probe_drop_{item:04x}.sav", edits=dict(items=[item]))

@@ -1,5 +1,5 @@
 """After the yard loads, dump bound material state of each cached furniture model."""
-import struct, sys; sys.path.insert(0, r"e:\acww-plus\tools")
+import struct, sys; sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parents[1]))
 from harness import *
 items = [0x301C, 0x3013, 0x300C]
 spots = [(9, 8), (12, 7), (13, 9)]

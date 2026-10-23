@@ -1,5 +1,5 @@
 """Town with 10 furniture pieces: game frames and cache counters over 300 vblanks. usage: perf_probe.py [port]"""
-import struct, sys; sys.path.insert(0, r"e:\acww-plus\tools")
+import struct, sys; sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parents[1]))
 from harness import *
 port = int(sys.argv[1]) if len(sys.argv) > 1 else 19884
 items = [0x3000, 0x300C, 0x3015, 0x301C, 0x3013, 0x303B, 0x3074, 0x3004, 0x3008, 0x3018]

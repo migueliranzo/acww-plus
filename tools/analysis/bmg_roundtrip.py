@@ -1,4 +1,4 @@
-import sys, os, glob; sys.path.insert(0, r'e:\acww-plus\tools')
+import sys, os, glob; sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parents[1]))
 import bmg_tool
 files = glob.glob(r'E:\claudeGameDecomp\extracted\files\script\*\select\*.bmg') + glob.glob(r'E:\claudeGameDecomp\extracted\files\script\*\message\sp\etc\*.bmg')
 tmp = os.path.join(os.environ['TEMP'], 'bmg_rt.bmg'); ok=0; bad=[]

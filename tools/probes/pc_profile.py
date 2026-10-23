@@ -1,6 +1,6 @@
 """Statistical PC profile of the ARM9 in town: stop every N retired instructions, bucket the PC
 (payload functions from build/payload.map, otherwise by module). usage: pc_profile.py vanilla|plus port [stride]"""
-import bisect, collections, sys; sys.path.insert(0, r"e:\acww-plus\tools")
+import bisect, collections, sys; sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parents[1]))
 from harness import *
 which, port = sys.argv[1], int(sys.argv[2])
 stride = int(sys.argv[3]) if len(sys.argv) > 3 else 997

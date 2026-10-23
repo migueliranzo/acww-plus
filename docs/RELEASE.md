@@ -11,6 +11,9 @@ Releases are BPS patches against the clean EU ROM. The ROM itself is never distr
    `build/release/hashes.txt`. The script applies the patch again and compares the result with the release ROM.
 4. Ship `acww_plus_<version>.bps`, `docs/release/README.md` and the hashes from `hashes.txt`.
 5. Rebuild the dev ROM afterwards (`py -3.12 tools/build_rom.py`): both builds share `build/extracted/`.
+6. On GitHub: tag the commit (e.g. `v0.1.0-alpha1`), create a release from the tag, mark it as a pre-release,
+   attach `acww_plus_<version>.bps`, and paste the hashes from `hashes.txt` and a short changelog into the release
+   notes. Never attach a ROM.
 
 ## Base ROM
 - *Animal Crossing - Wild World (Europe) (En,Fr,De,Es,It)*, game code `ADMP`, 67,108,864 bytes, CRC32 `C677970C`

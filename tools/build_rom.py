@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """
-Builds the AC:WW+ ROM (e:/acww-plus/build/acww_plus.nds).
+Builds the AC:WW+ ROM (build/acww_plus.nds; with --release, build/acww_plus_release.nds).
+External paths (vanilla extract, dsd, mwccarm) come from tools/acww_config.py.
 
 1. Compiles every src/*.c as one unit (build/acww_plus_unity.c) with Metrowerks mwccarm.exe.
 2. Links the ELF object at 0x01FFDC00 (unused ITCM tail) and writes build/payload.map.
-3. Copies fresh vanilla arm9/overlay binaries from E:/claudeGameDecomp/extracted (read only), appends the
-   payload to itcm.bin, and applies tools/patches.py (each patch checks the vanilla bytes first).
+3. Copies fresh vanilla arm9/overlay binaries from the vanilla extract (read only; the first build copies the whole
+   extract to build/extracted), appends the payload to itcm.bin, and applies tools/patches.py (each patch checks
+   the vanilla bytes first). Builds src/heap/*.c into the code-home autoload block.
 4. Runs dsd rom build.
 """
 
@@ -19,7 +21,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-ROOT_DIR = Path(r"e:\acww-plus")
+import acww_config
+
+ROOT_DIR = acww_config.PROJECT
 UNITY_C = ROOT_DIR / "build" / "acww_plus_unity.c"
 OBJ_O = ROOT_DIR / "build" / "acww_plus.o"
 PAYLOAD_BIN = ROOT_DIR / "build" / "payload_itcm.bin"
@@ -28,9 +32,9 @@ OUT_ROM = ROOT_DIR / "build" / "acww_plus.nds"
 RELEASE_ROM = ROOT_DIR / "build" / "acww_plus_release.nds"
 RELEASE = "--release" in sys.argv   # leaves out the hooks of unreleased features (patches.RELEASE_DISABLED)
 
-VANILLA_EXTRACTED = Path(r"E:\claudeGameDecomp\extracted")
-DSD_EXE = Path(r"E:\claudeGameDecomp\dsd-windows-x86_64.exe")
-MWCCARM_EXE = Path(r"C:\NDS_RECOMP\nds-docs\pokemon_dp\sdk\cw\ARM_Tools\Command_Line_Tools\mwccarm.exe")
+VANILLA_EXTRACTED = Path(acww_config.get("VANILLA_EXTRACTED"))   # read only
+DSD_EXE = Path(acww_config.get("DSD_EXE"))
+MWCCARM_EXE = Path(acww_config.get("MWCCARM_EXE"))
 
 ITCM_BASE_ADDR = 0x01FF8000
 PAYLOAD_OFFSET_IN_ITCM = 0x5C00
@@ -358,6 +362,9 @@ def main():
     if RELEASE:
         OUT_ROM = RELEASE_ROM
         print(f"      Release build -> {OUT_ROM.name}")
+    if not (EXTRACTED_DIR / "config.yaml").exists():
+        print(f"      First build: copying {VANILLA_EXTRACTED} to {EXTRACTED_DIR} ...")
+        shutil.copytree(VANILLA_EXTRACTED, EXTRACTED_DIR, dirs_exist_ok=True)
     files = write_unity_source()
     print(f"      Sources: {', '.join(p.name for p in files)}")
     compile_c_source()

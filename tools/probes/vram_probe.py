@@ -1,4 +1,4 @@
-import sys; sys.path.insert(0, r"e:\acww-plus\tools")
+import sys; sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parents[1]))
 from harness import *
 which = sys.argv[1]
 rom = ROM_VANILLA if which == "vanilla" else ROM_PLUS

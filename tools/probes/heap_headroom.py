@@ -5,7 +5,7 @@ vanilla ROM and on AC:WW+.
 usage: py -3.12 tools/probes/heap_headroom.py [plus|vanilla|both]"""
 import struct
 import sys
-sys.path.insert(0, r"e:\acww-plus\tools")
+sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parents[1]))
 from harness import *  # noqa
 
 GRID_SAVE = 0xC354

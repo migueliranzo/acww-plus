@@ -1,12 +1,12 @@
 """Stress: N distinct furniture models around the house (acre 9 rows 7-12). Reports loaded models, VRAM used,
 polygon / vertex counts and game frame rate. usage: stress_probe.py [N] [rom] [port]"""
-import struct, sys; sys.path.insert(0, r"e:\acww-plus\tools")
+import struct, sys; sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parents[1]))
 from harness import *
 from PIL import Image
 n = int(sys.argv[1]) if len(sys.argv) > 1 else 24
 rom = sys.argv[2] if len(sys.argv) > 2 else ROM_PLUS
 port = int(sys.argv[3]) if len(sys.argv) > 3 else 19889
-always = open(r"e:\acww-plus\build\extracted\files\ftr_info\ENG\always.bin", "rb").read()
+always = open(PROJECT / "build" / "extracted" / "files" / "ftr_info" / "ENG" / "always.bin", "rb").read()
 models = [m for m in range(0x20, 0x6E9) if always[m * 8 + 5] == 0][:n]   # 1x1 pieces, distinct models
 free = [(lx, lz) for lz in (8, 9, 10, 11, 12, 13) for lx in range(3, 16) if (lx, lz) not in ((11, 8),)]
 orig = open(VANILLA_SAV, "rb").read()

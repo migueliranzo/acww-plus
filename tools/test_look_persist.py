@@ -2,7 +2,7 @@
 """Saved look persists (ndsref): a save with a chosen base tone 3 (PostOffice pad nibble = 4), a faded tan 0 and
 red shoes boots into town with tan 3 restored by the player_tan_level floor; compared with vanilla skin."""
 import sys
-sys.path.insert(0, r"e:\acww-plus\tools")
+sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parents[0]))
 from harness import *  # noqa
 from PIL import Image
 

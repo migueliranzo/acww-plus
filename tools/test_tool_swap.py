@@ -2,7 +2,7 @@
 """Tool swap test (ndsref): R cycles tools from the pockets, L puts away / takes back, no swap in menus or walking."""
 import struct
 import sys
-sys.path.insert(0, r"e:\acww-plus\tools")
+sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parents[0]))
 from harness import *  # noqa
 
 TOOLS = [0x1369, 0x1376, 0x1374]  # shovel, net, fishing rod
