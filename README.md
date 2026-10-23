@@ -4,9 +4,7 @@
 keeps the game's feel.** Furniture outside, transparent patterns, shaking trees with your tools, swapping tools with L/R, and
 a few more things I always wanted from Wild World.
 
-<!-- Outdoor furniture screenshot: add docs/images/outdoor_furniture.png and uncomment the next line.
 ![Furniture placed outdoors in 3D](docs/images/outdoor_furniture.png)
--->
 
 > **Status: alpha.** The **European version** runs on real hardware (flashcart) and on emulators, and I play it
 > every day. The **US version** is the same hack moved to the US game: it passes the same automated tests in an
@@ -102,9 +100,6 @@ You need **your own copy** of the game. This repo and its releases contain no ga
   as black, and outdoor furniture shows as leaves.
 - ⚠️ **Before going back, pick up any 2- or 4-square furniture you placed outdoors** (benches, tables, beds).
   Their extra squares hold a marker the original game can't clear, so you couldn't drop anything there.
-
-### Multiplayer
-Visitors who aren't running AC:WW+ see your outdoor furniture as leaves. Nothing else changes for them.
 
 ### Found a bug?
 Open an [issue](https://github.com/migueliranzo/acww-plus/issues). Please include:
