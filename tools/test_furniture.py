@@ -228,7 +228,7 @@ def treedrop_main():
         print(f"  s_leaf={leaf}")
         ok = len(drops) == 1 and n1 == n0 == 0
         print(f"  RESULT tree-dropped furniture stays a leaf: {'PASS' if ok else 'FAIL'} (drops={len(drops)}, loads {n0}->{n1}, expect 1 drop, 0 loads)")
-        walk_until(e, "left", 0, 42.8, max_frames=100)
+        walk_until(e, "left", 0, 43.0, max_frames=100)
         walk_until(e, "down", 2, 56.75, max_frames=60)   # (10,8) facing down at the leaf (10,9)
         where(e, "facing the leaf")
         for nudge in ("down", "up", "left"):   # B takes what is underfoot or in front; retry from a nudged spot
