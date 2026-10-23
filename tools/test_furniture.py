@@ -8,12 +8,12 @@ usage: test_furniture.py [stage ...]   stages: collide drop house marker pickup,
 """
 import struct
 import sys
-sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parents[0]))
+sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parent))
 from harness import *  # noqa
 
 GRID_SAVE = 0xC354
 GRID_RAM = SAVE_RAM_BASE + GRID_SAVE
-ALWAYS = open(PROJECT / "build" / "extracted" / "files" / "ftr_info" / "ENG" / "always.bin", "rb").read()
+ALWAYS = (BUILD / "extracted" / "files" / regions.REGIONS[REGION]["ftr_info"] / "always.bin").read_bytes()
 
 
 def footprint(item):
@@ -61,8 +61,8 @@ def cache_state(e, label):
             mid, ar, dist, off, sz, tick, fseq, arc, mdl = struct.unpack("<HBBHHIIII", b)
             if mid != 0xFFFF:
                 print(f"     slot{i}: model={mid:#06x} arena={ar} dist={dist} off={off:#x} size={sz:#x} tick={tick} arc={arc:#x}")
-    vr = [e.u32(0x021F2CB4 + 4*i) - e.u32(0x021F2CC4 + 4*i) for i in range(4)]
-    print(f"     vram tex free={[hex(x) for x in vr]} pltt free={e.u32(0x021F2CD4) - e.u32(0x021F2CB0):#x}")
+    vr = [e.u32(A(0x021F2CB4) + 4*i) - e.u32(A(0x021F2CC4) + 4*i) for i in range(4)]
+    print(f"     vram tex free={[hex(x) for x in vr]} pltt free={e.u32(A(0x021F2CD4)) - e.u32(A(0x021F2CB0)):#x}")
     return sc
 
 
@@ -208,7 +208,7 @@ def treedrop_main():
     (no model load, no collision). Then the leaf is picked up and dropped again from the pockets: now it is 3D."""
     tree = tile_off(9, 11, 9)
     empty_pockets = {0xC + 0x1B22 + 2 * i: 0xFFF1 for i in range(15)}   # the leaf goes to slot 0
-    save = prepare_save(PROJECT / "build" / "test_furniture_tree.sav", edits=dict(bells=50000), grid={tree: 0x0066},
+    save = prepare_save(BUILD / "test_furniture_tree.sav", edits=dict(bells=50000), grid={tree: 0x0066},
                         pokes=empty_pockets)
     with Emu(ROM_PLUS, str(save), tag="ftrt") as e:
         e.boot_to_town()
@@ -290,7 +290,7 @@ def lampuse_main(when="night", mode="on"):
     it off (its shade turns dark: many pixels around the lamp change), A again switches it back on (the lamp looks
     as at the start); the game keeps running (a switch sound once froze it)."""
     pokes = {0x15FB4: struct.pack("<i", 9 * 60)} if when == "night" else {}
-    save = prepare_save(PROJECT / "build" / f"test_furniture_lampuse_{when}.sav", edits=dict(bells=50000),
+    save = prepare_save(BUILD / f"test_furniture_lampuse_{when}.sav", edits=dict(bells=50000),
                         grid={tile_off(9, 11, 9): 0x301C}, pokes=pokes)
     with Emu(ROM_PLUS, str(save), tag=f"ftru_{when}") as e:
         e.boot_to_town()
@@ -300,9 +300,9 @@ def lampuse_main(when="night", mode="on"):
         print(f"  facing the lamp: x={x:.2f} z={z:.2f}")
         on0 = e.shot("80_lamp_on")
         e.press("a", hold=6, after=60)
-        g0 = e.u32(0x021F7E10)
+        g0 = e.u32(A(0x021F7E10))
         e.wait(60)
-        alive = e.u32(0x021F7E10) - g0
+        alive = e.u32(A(0x021F7E10)) - g0
         off = e.shot("81_lamp_switched_off")
         e.press("a", hold=6, after=90)
         on1 = e.shot("82_lamp_switched_on")
@@ -322,7 +322,7 @@ def sit_main(piece="chair", mode="on"):
     A with empty hands sits the player there (actions 0x25 -> 0x28, position = the square's centre); Up stands them
     up (0x2C) and puts them back."""
     grid = {tile_off(9, 11, 9): 0x3013} if piece == "chair" else {tile_off(9, 11, 10): 0x300D}
-    save = prepare_save(PROJECT / "build" / f"test_furniture_sit_{piece}.sav", edits=dict(bells=50000), grid=grid)
+    save = prepare_save(BUILD / f"test_furniture_sit_{piece}.sav", edits=dict(bells=50000), grid=grid)
     with Emu(ROM_PLUS, str(save), tag=f"ftrs_{piece}") as e:
         e.boot_to_town()
         e.wait(300)
@@ -339,9 +339,9 @@ def sit_main(piece="chair", mode="on"):
                 seen.append(act)
         x1, _, z1, ang = player_pos(e)
         e.shot("90_sitting")
-        g0 = e.u32(0x021F7E10)
+        g0 = e.u32(A(0x021F7E10))
         e.wait(30)
-        alive = e.u32(0x021F7E10) - g0
+        alive = e.u32(A(0x021F7E10)) - g0
         e.press("up", hold=10)
         for _ in range(60):
             e.wait(4)
@@ -363,7 +363,7 @@ def sit_main(piece="chair", mode="on"):
 
 
 def ghost_main():
-    save = prepare_save(PROJECT / "build" / "test_furniture_ghost.sav",
+    save = prepare_save(BUILD / "test_furniture_ghost.sav",
                         edits=dict(bells=50000), grid={tile_off(9, 13, 11): 0x3015})
     with Emu(ROM_PLUS, str(save), tag="ftrg") as e:
         e.boot_to_town()
@@ -385,7 +385,7 @@ def main():
         return treedrop_main()
     for lx, lz, it in YARD:
         print(f"yard ({lx},{lz}) {it:#06x} footprint={footprint(it)}")
-    save = prepare_save(PROJECT / "build" / "test_furniture.sav",
+    save = prepare_save(BUILD / "test_furniture.sav",
                         edits=dict(bells=50000, items=POCKETS),
                         grid={**{tile_off(9, lx, lz): it for lx, lz, it in YARD}, tile_off(9, 11, 9): 0xF031})
     with Emu(ROM_PLUS, str(save), tag="ftr") as e:

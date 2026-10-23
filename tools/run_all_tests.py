@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Runs every headless test against build/acww_plus.nds (sequentially: they share an emulator port) and prints
-the RESULT lines. usage: py -3.12 tools/run_all_tests.py [--release]
+the RESULT lines. usage: py -3.12 tools/run_all_tests.py [--release] [--region eu|us]
 --release: against build/acww_plus_release.nds (tools/build_rom.py --release); the sitting and lamp-switching
-tests are replaced by checks that those features are off."""
+tests are replaced by checks that those features are off.
+--region us: against the US build (build/us/, tools/build_rom.py --region us), with the US test save."""
 import os
 import subprocess
 import sys
@@ -35,8 +36,11 @@ RELEASE_OFF = {("test_furniture.py", "sit"), ("test_furniture.py", "lampuse")}
 def main():
     summary = []
     tests = TESTS
+    region = sys.argv[sys.argv.index("--region") + 1] if "--region" in sys.argv else "eu"
+    os.environ["ACWW_REGION"] = region
+    build = T.parent / "build" if region == "eu" else T.parent / "build" / region
     if "--release" in sys.argv:
-        os.environ["ACWW_ROM"] = str(T.parent / "build" / "acww_plus_release.nds")
+        os.environ["ACWW_ROM"] = str(build / "acww_plus_release.nds")
         tests = [t + ["off"] if tuple(t[:2]) in RELEASE_OFF else t for t in TESTS]
         tests = [t for t in tests if not (tuple(t[:2]) in RELEASE_OFF and t[2] in ("bench", "day"))]
     for t in tests:

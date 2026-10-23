@@ -2,7 +2,7 @@
 """Tool swap test (ndsref): R cycles tools from the pockets, L puts away / takes back, no swap in menus or walking."""
 import struct
 import sys
-sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parents[0]))
+sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parent))
 from harness import *  # noqa
 
 TOOLS = [0x1369, 0x1376, 0x1374]  # shovel, net, fishing rod
@@ -10,8 +10,8 @@ NAMES = {0x1369: "shovel", 0x1376: "net", 0x1374: "rod", 0xFFF1: "-"}
 
 
 def record(e):
-    idx = e.u32(e.u32(0x020CC0C8) + 0x68)
-    return 0x021DA9F8 + 0xC + 0x228C * idx
+    idx = e.u32(e.u32(A(0x020CC0C8)) + 0x68)
+    return A(0x021DA9F8) + 0xC + 0x228C * idx
 
 
 def state(e):
@@ -32,7 +32,7 @@ def show(e, label):
 
 def main():
     results = []
-    save = prepare_save(PROJECT / "build" / "test_tools.sav", edits=dict(items=TOOLS))
+    save = prepare_save(BUILD / "test_tools.sav", edits=dict(items=TOOLS))
     with Emu(ROM_PLUS, str(save), tag="tools") as e:
         e.boot_to_town()
         e.wait(300)

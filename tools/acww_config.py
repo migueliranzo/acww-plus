@@ -7,6 +7,7 @@ See README.md, "For developers", for what each one is.
 """
 import json
 import os
+import subprocess
 from pathlib import Path
 
 PROJECT = Path(__file__).resolve().parent.parent
@@ -14,6 +15,10 @@ PROJECT = Path(__file__).resolve().parent.parent
 DEFAULTS = {
     # Your own dump of the EU ROM (ADMP, CRC32 C677970C)
     "CLEAN_ROM": r"E:\claudeGameDecomp\0389 - Animal Crossing - Wild World (E)(Legacy).nds",
+    # US build only: your own dump of the US ROM (ADME rev 0, CRC32 F24508AA). Its unpacked files are made on
+    # first use in vanilla/ADME/extracted of the main checkout (git-ignored), unless US_VANILLA_EXTRACTED is set.
+    "US_ROM": r"E:\Users\Migue\Downloads\0223 - Animal Crossing - Wild World (U)(SCZ)\0223 - Animal Crossing - Wild World (U)(SCZ).nds",
+    "US_VANILLA_EXTRACTED": "",
     # That ROM unpacked with dsd ("dsd rom extract"); the build copies vanilla binaries and files from here
     "VANILLA_EXTRACTED": r"E:\claudeGameDecomp\extracted",
     # dsd (https://github.com/AetiasHax/ds-decomp): rebuilds the ROM
@@ -33,3 +38,13 @@ _local = json.loads(_LOCAL.read_text(encoding="utf-8")) if _LOCAL.exists() else 
 
 def get(key):
     return os.environ.get("ACWW_" + key) or _local.get(key) or DEFAULTS[key]
+
+
+def main_checkout():
+    """The main checkout of this repo (the same as PROJECT unless this is a git worktree)."""
+    try:
+        common = subprocess.run(["git", "rev-parse", "--git-common-dir"], cwd=PROJECT, capture_output=True,
+                                text=True, check=True).stdout.strip()
+        return (PROJECT / common).resolve().parent
+    except (OSError, subprocess.CalledProcessError):
+        return PROJECT

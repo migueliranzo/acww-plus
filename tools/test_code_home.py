@@ -4,11 +4,11 @@ Checks in town, after entering the house and after coming back out: the RAM bloc
 (code part; .data/.bss may change), the root heap lies above the reserved block, outdoor furniture models load."""
 import struct
 import sys
-sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parents[0]))
+sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parent))
 from harness import *  # noqa
 
-BASE, RESERVE = 0x0229F9A0, 0x2000
-BLOB = (PROJECT / "build" / "extracted" / "arm9" / "hx_autoload.bin").read_bytes()
+BASE, RESERVE = A(0x0229F9A0), 0x2000
+BLOB = (BUILD / "extracted" / "arm9" / "hx_autoload.bin").read_bytes()
 
 
 def check(e, label):
@@ -16,14 +16,14 @@ def check(e, label):
     ram = e.read(BASE, len(BLOB))
     code_ok = ram[:1024] == BLOB[:1024]
     magic = struct.unpack_from("<I", ram)[0] == 0x50485741
-    heap = e.u32(0x021F7ECC)
+    heap = e.u32(A(0x021F7ECC))
     loads = e.u32(syms["g_ftr_perf"])
     print(f"  [{label}] magic={magic} code ok={code_ok} root heap={heap:#x} models loaded={loads}")
     return magic and code_ok and heap >= BASE + RESERVE and loads > 0
 
 
 def main():
-    save = prepare_save(PROJECT / "build" / "test_code_home.sav", edits=dict(bells=50000),
+    save = prepare_save(BUILD / "test_code_home.sav", edits=dict(bells=50000),
                         grid={0xC354 + 9 * 512 + (9 * 16 + 9) * 2: 0x301C})
     with Emu(ROM_PLUS, str(save), tag="hx") as e:
         e.boot_to_town()

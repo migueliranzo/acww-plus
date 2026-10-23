@@ -3,11 +3,11 @@
 Skin tone -> Darker x2 -> Lighter x1 -> This is fine, and checks the tan + the saved base."""
 import json
 import sys
-sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parents[0]))
+sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parent))
 from harness import *  # noqa
 
-REC0 = 0x021DAA04
-BASE_WORD = 0x021EF9C2
+REC0 = A(0x021DAA04)
+BASE_WORD = A(0x021EF9C2)
 
 
 def tan(e):
@@ -15,7 +15,7 @@ def tan(e):
 
 
 def main():
-    save = prepare_save(PROJECT / "build" / "test_skin.sav")
+    save = prepare_save(BUILD / "test_skin.sav")
     res = []
     with Emu(ROM_PLUS, str(save), tag="skin") as e:
         e.run_to(600); e.tap(128, 48); e.run_to(3000)

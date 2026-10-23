@@ -33,13 +33,36 @@ sys.path.insert(0, os.path.join(ROOT, "oracle"))
 from _client import DebugClient  # noqa: E402
 from PIL import Image  # noqa: E402
 
-PROJECT = acww_config.PROJECT
-ROM_PLUS = os.environ.get("ACWW_ROM") or str(PROJECT / "build" / "acww_plus.nds")   # ACWW_ROM: e.g. the release ROM
-ROM_VANILLA = acww_config.get("CLEAN_ROM")
-VANILLA_SAV = acww_config.get("TEST_SAVE")
+PROJECT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(PROJECT / "tools"))
+import regions  # noqa: E402
+
+# ACWW_REGION=us: test the US build (tools/build_rom.py --region us). Tests keep EU addresses and read memory at
+# A(eu_address), which maps them through the region's table.
+REGION = os.environ.get("ACWW_REGION", "eu")
+BUILD = regions.build_dir(PROJECT, REGION)             # build/ (EU), build/us/
+_ADDR, _ = regions.address_table(REGION)
+
+
+def A(eu_addr):
+    """The running region's address for an EU address (the EU's own address on the EU build)."""
+    if _ADDR is None:
+        return eu_addr
+    if eu_addr not in _ADDR:
+        raise KeyError(f"0x{eu_addr:08X} is not in the {REGION} address table (tools/remap_region.py)")
+    return _ADDR[eu_addr]
+
+
+ROM_PLUS = os.environ.get("ACWW_ROM") or str(BUILD / "acww_plus.nds")   # ACWW_ROM: e.g. the release ROM
+ROM_VANILLA = str(regions.REGIONS[REGION]["clean_rom"])
+EU_SAV = acww_config.get("TEST_SAVE")
+# The save layout is the same in every region but byte 0 (the game's save magic). Another region tests with the
+# d25 save converted: build/<region>/d25_<region>.sav (region_save()).
+acww_save_edit.MAGIC = regions.REGIONS[REGION]["save_magic"]
+VANILLA_SAV = EU_SAV if REGION == "eu" else str(BUILD / f"d25_{REGION}.sav")
 LOAD_SAVE_SCN = acww_config.get("LOAD_SAVE_SCENARIO")
-SHOT_DIR = PROJECT / "build" / "screenshots"
-MAP_PATH = PROJECT / "build" / "payload.map"
+SHOT_DIR = BUILD / "screenshots"
+MAP_PATH = BUILD / "payload.map"
 
 KEY_BITS = {
     "a": 0, "b": 1, "select": 2, "start": 3,
@@ -48,7 +71,7 @@ KEY_BITS = {
 }
 RELEASED = 0x0FFF
 
-SAVE_RAM_BASE = 0x021DA9F8  # RAM address of save block offset 0
+SAVE_RAM_BASE = A(0x021DA9F8)  # RAM address of save block offset 0
 
 
 def payload_symbols():
@@ -58,6 +81,28 @@ def payload_symbols():
             addr, name = line.split()
             syms[name] = int(addr, 16)
     return syms
+
+
+def region_save(src=EU_SAV, out=None):
+    """An EU save converted for the running region: save magic in byte 0 of both copies, main checksums fixed.
+    Every other byte is the same (the layout is shared). Returns the path (src itself on the EU)."""
+    if REGION == "eu":
+        return src
+    out = Path(out or VANILLA_SAV)
+    data = bytearray(Path(src).read_bytes())
+    for copy_base in acww_save_edit.COPIES:
+        data[copy_base] = acww_save_edit.MAGIC
+        struct.pack_into("<H", data, copy_base + acww_save_edit.MAIN_CK, 0)
+        ck = (-acww_save_edit.word_sum(data, copy_base, acww_save_edit.BLOCK)) & 0xFFFF
+        struct.pack_into("<H", data, copy_base + acww_save_edit.MAIN_CK, ck)
+    acww_save_edit.check(data)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_bytes(data)
+    return str(out)
+
+
+if REGION != "eu":
+    region_save()
 
 
 def prepare_save(out_path, edits=None, grid=None, pokes=None, base=VANILLA_SAV):
@@ -86,11 +131,18 @@ def prepare_save(out_path, edits=None, grid=None, pokes=None, base=VANILLA_SAV):
 
 class Emu:
     def __init__(self, rom=ROM_PLUS, save=None, port=19895, tag="run"):
+        # ACWW_PORT_OFFSET: run beside another checkout's tests (each run needs its own debug ports)
+        port += int(os.environ.get("ACWW_PORT_OFFSET", "0"))
         self.rom, self.save, self.port, self.tag = rom, save, port, tag
         self.proc = None
         self.c = None
 
     def __enter__(self):
+        import socket
+        with socket.socket() as s:      # a leftover emulator on the port would answer instead of ours
+            s.settimeout(1)
+            if s.connect_ex(("127.0.0.1", self.port)) == 0:
+                raise RuntimeError(f"port {self.port} is taken (a leftover ndsref?); stop it or set ACWW_PORT_OFFSET")
         SHOT_DIR.mkdir(parents=True, exist_ok=True)
         env = dict(os.environ, NDS_3D_RENDERER="soft")
         env["PATH"] = r"C:\msys64\ucrt64\bin;C:\msys64\mingw64\bin;" + env.get("PATH", "")
@@ -207,8 +259,8 @@ class Emu:
 
 
 def player_actor(e):
-    idx = e.u32(e.u32(0x020CC0C8) + 0x68)
-    return e.u32(0x021D3F04 + 4 * idx) if idx < 4 else 0
+    idx = e.u32(e.u32(A(0x020CC0C8)) + 0x68)
+    return e.u32(A(0x021D3F04) + 4 * idx) if idx < 4 else 0
 
 
 def player_pos(e):

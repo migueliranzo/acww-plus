@@ -2,7 +2,7 @@
 """Pattern transparency (ndsref): player 0's designs get index-0 pixels and are laid on the ground south of the
 door; vanilla draws index 0 black, AC:WW+ shows the ground through."""
 import sys
-sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parents[0]))
+sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parent))
 from harness import *  # noqa
 from PIL import Image
 
@@ -22,7 +22,7 @@ grid = {tile(9, 10 + i % 3, 9 + i // 3): 0xA7 + i for i in range(6)}
 
 
 def run(rom, tag, port):
-    save = prepare_save(PROJECT / "build" / f"test_alpha_{tag}.sav", pokes=pokes, grid=grid)
+    save = prepare_save(BUILD / f"test_alpha_{tag}.sav", pokes=pokes, grid=grid)
     with Emu(rom, str(save), port=port, tag=f"alpha_{tag}") as e:
         e.boot_to_town()
         e.wait(300)

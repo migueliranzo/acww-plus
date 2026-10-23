@@ -11,9 +11,6 @@ Releases are BPS patches against the clean EU ROM. The ROM itself is never distr
    `build/release/hashes.txt`. The script applies the patch again and compares the result with the release ROM.
 4. Ship `acww_plus_<version>.bps`, `docs/release/README.md` and the hashes from `hashes.txt`.
 5. Rebuild the dev ROM afterwards (`py -3.12 tools/build_rom.py`): both builds share `build/extracted/`.
-6. On GitHub: tag the commit (e.g. `v0.1.0-alpha1`), create a release from the tag, mark it as a pre-release,
-   attach `acww_plus_<version>.bps`, and paste the hashes from `hashes.txt` and a short changelog into the release
-   notes. Never attach a ROM.
 
 ## Base ROM
 - *Animal Crossing - Wild World (Europe) (En,Fr,De,Es,It)*, game code `ADMP`, 67,108,864 bytes, CRC32 `C677970C`
@@ -34,5 +31,19 @@ binary). Building them uncompressed would shrink the patch but cost about 12% of
 (`docs/OPTIMIZATION_REPORT.md`), so they stay compressed.
 
 ## US version
-Not supported: the hack uses EU addresses everywhere (54 patch sites, ~130 code and data addresses, plus the build
-constants). A US port needs a US dump and a remap of those addresses; see the 2026-10-23 notes in `PROGRESS.md`.
+*Animal Crossing - Wild World (USA)*, game code `ADME`, rev 0, 33,554,432 bytes, CRC32 `F24508AA` (the owner's
+dump; the US v1.1 revision is not supported). The sources and `tools/patches.py` stay in EU addresses; the US
+build maps them through `tools/regions/adme.py`, which `tools/remap_region.py us` generates from the two games'
+binaries (rerun it after adding or changing an address; the US build stops on any address the table lacks).
+1. `py -3.12 tools/build_rom.py --release --region us` -> `build/us/acww_plus_release.nds`
+2. `py -3.12 tools/run_all_tests.py --release --region us` (the tests boot the d25 save converted to the US save
+   magic, `build/us/d25_us.sav`)
+3. `py -3.12 tools/make_patch.py <version> --region us` -> `build/release/acww_plus_<version>_us.bps`,
+   `hashes_us.txt`, `README_US.md` (from `docs/release/README_US.md`)
+
+The US vanilla files are extracted from the dump on first use into `vanilla/ADME/extracted` of the main checkout
+(git-ignored); set `ACWW_US_ROM` if the dump moves. Differences that matter: the US has 146 overlays (no EU ov018 /
+ov056, so EU ov019-055 are US ov018-054 and EU ov057+ are US ov055+: the pattern editor ov123 is US ov121), arm9
+and the overlay region sit about 0x1000-0x4200 lower (code home `0x0229B780`, arena-lo literal `0x02114274`), one
+language (`script/ENG/`, `ftr_info/` without a language folder), and the save magic is `0x8A` instead of `0xC5`
+(otherwise the save layout is the same).
