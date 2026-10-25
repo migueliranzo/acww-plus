@@ -67,7 +67,7 @@ REGIONS = {
         "clean_rom": Path(acww_config.get("JP_ROM")),
         "rom_key": "JP_ROM",
         "clean_crc32": 0x76E797D8,
-        "save_magic": None,                   # TODO
+        "save_magic": 0x32,                   # JP 0x0209DE9C
         "langs": ["JPN"],
         "ftr_info": "ftr_info",
         "suffix": "_jp",
