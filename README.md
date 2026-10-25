@@ -108,14 +108,14 @@ emulator looks for it, in the size it expects. **Back up your save first.**
 - **Name:** the save must have the same name as the patched ROM, with `.sav` at the end. Example:
   `acww_plus.nds` → `acww_plus.sav`, in the same folder (some flashcarts use a separate `saves` folder; check your
   cart's manual).
-- **Region:** use an EU save with the EU patch and a US save with the US patch. A save from the other region is
-  reported as damaged.
+- **Region:** use an EU save with the EU patch and a US save with the US patch. Each region marks its saves
+  differently (the first byte of each save block), so the game won't accept a save from the other region.
 - **Size (flashcarts):** an Animal Crossing: Wild World save is **256 KB** (262,144 bytes). Some flashcarts,
   including the original R4 and many R4-style clones, expect **512 KB** save files. With a 256 KB file they report
   the save as damaged, even though it's fine (a new game works, because the cart then creates its own 512 KB file).
   **Fix:** resize the save to 512 KB with [Save File Converter](https://savefileconverter.com/#/flash-carts)
-  (flash carts section), or let the cart create a new save first and use that size. If your cart is happy with
-  256 KB, leave it as is.
+  (flash carts section). The game only uses the first 256 KB, and the added half is empty. A save that already came
+  off such a cart is 512 KB and can be copied as is. If your cart is happy with 256 KB, leave it as is.
 - **Emulators:**
   - **melonDS:** put the `.sav` next to the ROM with the same name. A plain 256 KB save works.
   - **DeSmuME:** it uses its own `.dsv` format. Import a plain save with *File → Import Backup Memory*, or convert it
