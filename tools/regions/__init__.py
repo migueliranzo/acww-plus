@@ -6,6 +6,7 @@ region maps them through its address table, tools/regions/<table>.py, which tool
   us   Animal Crossing: Wild World (USA), ADME rev 0, English only
   us1  Animal Crossing: Wild World (USA), ADME rev 1 (a rebuilt binary: every address moved again; 148 overlays,
        numbered like the EU's)
+  jp   Oide yo Doubutsu no Mori (Japan), ADMJ, Japanese only (overlays numbered like US rev 0)
 
 The US vanilla files are extractions of the owner's own dumps (dsd rom extract), outside git, shared by every
 checkout: vanilla/ADME/extracted (rev 0) and vanilla/ADME1/extracted (rev 1) in the main checkout. make_vanilla()
@@ -59,6 +60,18 @@ REGIONS = {
         "ftr_info": "ftr_info",
         "suffix": "_us_rev1",
         "table": "adme_rev1",
+    },
+    "jp": {
+        "code": "ADMJ", "title": "Oide yo Doubutsu no Mori (Japan)",
+        "vanilla": Path(acww_config.get("JP_VANILLA_EXTRACTED") or MAIN_CHECKOUT / "vanilla" / "ADMJ" / "extracted"),
+        "clean_rom": Path(acww_config.get("JP_ROM")),
+        "rom_key": "JP_ROM",
+        "clean_crc32": 0x76E797D8,
+        "save_magic": None,                   # TODO
+        "langs": ["JPN"],
+        "ftr_info": "ftr_info",
+        "suffix": "_jp",
+        "table": "admj",
     },
 }
 
