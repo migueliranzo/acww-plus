@@ -25,7 +25,7 @@ before you start.
 ## How to patch
 1. You need your own dump of *Animal Crossing - Wild World (USA)*, game code ADME, first release (rev 0),
    33,554,432 bytes, CRC32 **F24508AA** (other hashes in `hashes_us.txt`). The European, Japanese and Korean
-   versions won't work, and neither will the later US revision (v1.1).
+   versions won't work. For the later US revision (rev 1, "v1.1") use `acww_plus_<version>_us_rev1.bps`.
 2. Open [Rom Patcher JS](https://www.marcrobledo.com/RomPatcher.js/) (or Flips), choose your ROM and the `.bps`
    file, and apply. A wrong base ROM is refused.
 3. Play the patched ROM on a flashcart or an emulator.

@@ -1,12 +1,15 @@
 """
 The game regions AC:WW+ builds for. The sources and tools/patches.py are written with EU (ADMP) addresses; another
-region maps them through its address table, tools/regions/<code>.py, which tools/remap_region.py generates.
+region maps them through its address table, tools/regions/<table>.py, which tools/remap_region.py generates.
 
-  eu  Animal Crossing: Wild World (Europe), ADMP, 5 languages
-  us  Animal Crossing: Wild World (USA), ADME, English only
+  eu   Animal Crossing: Wild World (Europe), ADMP, 5 languages
+  us   Animal Crossing: Wild World (USA), ADME rev 0, English only
+  us1  Animal Crossing: Wild World (USA), ADME rev 1 (a rebuilt binary: every address moved again; 148 overlays,
+       numbered like the EU's)
 
-The US vanilla files are an extraction of the owner's own dump (dsd rom extract), outside git, shared by every
-checkout: vanilla/ADME/extracted in the main checkout. make_vanilla() creates it from the clean ROM.
+The US vanilla files are extractions of the owner's own dumps (dsd rom extract), outside git, shared by every
+checkout: vanilla/ADME/extracted (rev 0) and vanilla/ADME1/extracted (rev 1) in the main checkout. make_vanilla()
+creates them from the clean ROMs.
 """
 import os
 import re
@@ -30,17 +33,32 @@ REGIONS = {
         "save_magic": 0xC5,                   # byte 0 of a save block (func_0209e500)
         "langs": ["ENG", "FRN", "GER", "ITA", "SPN"],
         "ftr_info": "ftr_info/ENG",           # the English furniture info (the test reads it)
-        "suffix": "",                         # build output names: acww_plus<suffix>.nds
+        "suffix": "",                         # patch names: acww_plus_<version><suffix>.bps
+        "table": None,                        # tools/regions/<table>.py (None: the EU addresses themselves)
     },
     "us": {
         "code": "ADME", "title": "Animal Crossing: Wild World (USA)",
         "vanilla": Path(acww_config.get("US_VANILLA_EXTRACTED") or MAIN_CHECKOUT / "vanilla" / "ADME" / "extracted"),
         "clean_rom": Path(acww_config.get("US_ROM")),
+        "rom_key": "US_ROM",
         "clean_crc32": 0xF24508AA,
         "save_magic": 0x8A,                   # the same check, US 0x0209DEFC
         "langs": ["ENG"],
         "ftr_info": "ftr_info",
         "suffix": "_us",
+        "table": "adme",
+    },
+    "us1": {
+        "code": "ADME", "title": "Animal Crossing: Wild World (USA) (Rev 1)",
+        "vanilla": Path(acww_config.get("US1_VANILLA_EXTRACTED") or MAIN_CHECKOUT / "vanilla" / "ADME1" / "extracted"),
+        "clean_rom": Path(acww_config.get("US1_ROM")),
+        "rom_key": "US1_ROM",
+        "clean_crc32": 0x7E62F586,
+        "save_magic": 0x8A,
+        "langs": ["ENG"],
+        "ftr_info": "ftr_info",
+        "suffix": "_us_rev1",
+        "table": "adme_rev1",
     },
 }
 
@@ -49,7 +67,7 @@ def overlay_map(region):
     """{EU overlay id: this region's id} (None: no counterpart). From content matching (tools/remap_region.py):
     the US has no EU ov018 and ov056 (ov018 is a 0x120-byte stub; ov056 0xE0), so ids shift by 1 after ov017 and
     by 2 after ov056."""
-    if region == "eu":
+    if region in ("eu", "us1"):      # US rev 1 keeps the EU's overlay ids (checked by content, remap_region.py)
         return {n: n for n in range(148)}
     m = {}
     for n in range(148):
@@ -71,7 +89,7 @@ def make_vanilla(region):
         return
     if not info["clean_rom"].exists():
         raise FileNotFoundError(f"{info['title']}: no vanilla files at {info['vanilla']} and no clean ROM at "
-                                f"{info['clean_rom']} (set ACWW_US_ROM)")
+                                f"{info['clean_rom']} (set ACWW_{info['rom_key']})")
     import zlib
     crc = zlib.crc32(info["clean_rom"].read_bytes())
     if crc != info["clean_crc32"]:
@@ -159,5 +177,5 @@ def address_table(region):
     if region == "eu":
         return None, None
     import importlib
-    mod = importlib.import_module(f"regions.{REGIONS[region]['code'].lower()}")
+    mod = importlib.import_module(f"regions.{REGIONS[region]['table']}")
     return mod.ADDR, mod.PATCH_EXPECT

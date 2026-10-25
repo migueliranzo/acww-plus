@@ -32,7 +32,7 @@ binary). Building them uncompressed would shrink the patch but cost about 12% of
 
 ## US version
 *Animal Crossing - Wild World (USA)*, game code `ADME`, rev 0, 33,554,432 bytes, CRC32 `F24508AA` (the owner's
-dump; the US v1.1 revision is not supported). The sources and `tools/patches.py` stay in EU addresses; the US
+dump; rev 1 has its own region, below). The sources and `tools/patches.py` stay in EU addresses; the US
 build maps them through `tools/regions/adme.py`, which `tools/remap_region.py us` generates from the two games'
 binaries (rerun it after adding or changing an address; the US build stops on any address the table lacks).
 1. `py -3.12 tools/build_rom.py --release --region us` -> `build/us/acww_plus_release.nds`
@@ -47,3 +47,13 @@ ov056, so EU ov019-055 are US ov018-054 and EU ov057+ are US ov055+: the pattern
 and the overlay region sit about 0x1000-0x4200 lower (code home `0x0229B780`, arena-lo literal `0x02114274`), one
 language (`script/ENG/`, `ftr_info/` without a language folder), and the save magic is `0x8A` instead of `0xC5`
 (otherwise the save layout is the same).
+
+## US rev 1
+*Animal Crossing - Wild World (USA) (Rev 1)*, game code `ADME`, header revision 1, 33,554,432 bytes, CRC32
+`7E62F586`, SHA-1 `77fde3e30e1e6068395d1f96ea63be569b61c351`. It is a rebuilt binary, so it has its own region
+`us1` and address table `tools/regions/adme_rev1.py` (`tools/remap_region.py us1`): the same steps as above with
+`--region us1` (outputs in `build/us1/`; patch `acww_plus_<version>_us_rev1.bps`, `hashes_us_rev1.txt`,
+`README_US_REV1.md`). Its vanilla files go to `vanilla/ADME1/extracted` (`ACWW_US1_ROM` if the dump moves).
+Against rev 0: 148 overlays numbered like the EU's (rev 0 drops two), every module shifted again (code home
+`0x0229BDC0`, arena-lo literal `0x021147F4`, autoload 2 at `0x020E7500`), a few text files changed (none that the
+hack edits), and the same save magic `0x8A`.
