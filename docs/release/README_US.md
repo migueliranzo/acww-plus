@@ -31,6 +31,7 @@ before you start.
 3. Play the patched ROM on a flashcart or an emulator.
 
 ## Saves
+- **Flashcarts and emulators:** name the save like the patched ROM (`acww_plus.sav` next to `acww_plus.nds`). Wild World saves are 256 KB; some flashcarts (the original R4 and many clones) want 512 KB and call a 256 KB save "damaged". Resize it with https://savefileconverter.com/#/flash-carts. More in the main README: https://github.com/migueliranzo/acww-plus#using-your-save-on-a-flashcart-or-an-emulator
 - Your existing US save works as is.
 - Going back to the original game: the save loads, and the hack's extras are ignored:
   - Shoes and socks are back to their normal colours.

@@ -101,6 +101,32 @@ You need **your own copy** of the game. This repo and its releases contain no ga
 - ⚠️ **Before going back, pick up any 2- or 4-square furniture you placed outdoors** (benches, tables, beds).
   Their extra squares hold a marker the original game can't clear, so you couldn't drop anything there.
 
+### Using your save on a flashcart or an emulator
+The patch doesn't change the save format, so your save carries over. It just has to be where the flashcart or
+emulator looks for it, in the size it expects. **Back up your save first.**
+
+- **Name:** the save must have the same name as the patched ROM, with `.sav` at the end. Example:
+  `acww_plus.nds` → `acww_plus.sav`, in the same folder (some flashcarts use a separate `saves` folder; check your
+  cart's manual).
+- **Region:** use an EU save with the EU patch and a US save with the US patch. A save from the other region is
+  reported as damaged.
+- **Size (flashcarts):** an Animal Crossing: Wild World save is **256 KB** (262,144 bytes). Some flashcarts,
+  including the original R4 and many R4-style clones, expect **512 KB** save files. With a 256 KB file they report
+  the save as damaged, even though it's fine (a new game works, because the cart then creates its own 512 KB file).
+  **Fix:** resize the save to 512 KB with [Save File Converter](https://savefileconverter.com/#/flash-carts)
+  (flash carts section), or let the cart create a new save first and use that size. If your cart is happy with
+  256 KB, leave it as is.
+- **Emulators:**
+  - **melonDS:** put the `.sav` next to the ROM with the same name. A plain 256 KB save works.
+  - **DeSmuME:** it uses its own `.dsv` format. Import a plain save with *File → Import Backup Memory*, or convert it
+    with [Save File Converter](https://savefileconverter.com/).
+  - Other emulators: use their save import option, or name the save like the ROM.
+- **Dumped from a real cartridge?** That save is the plain 256 KB kind: rename it like the ROM, and resize it if
+  your flashcart wants 512 KB.
+
+I haven't tested every flashcart. If yours needs something different, an issue saying what worked helps the next
+person.
+
 ### Found a bug?
 Open an [issue](https://github.com/migueliranzo/acww-plus/issues). Please include:
 - what you were doing when it happened;
