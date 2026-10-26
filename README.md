@@ -1,14 +1,14 @@
 # AC:WW+
 
-**A small quality-of-life hack for *Animal Crossing: Wild World* (Nintendo DS, European and US versions) that
+**A small quality-of-life hack for *Animal Crossing: Wild World* (Nintendo DS, European and US versions, both US revisions) that
 keeps the game's feel.** Furniture outside, transparent patterns, shaking trees with your tools, swapping tools with L/R, and
 a few more things I always wanted from Wild World.
 
 ![Furniture placed outdoors in 3D](docs/images/outdoor_furniture.png)
 
 > **Status: alpha.** The **European version** runs on real hardware (flashcart) and on emulators, and I play it
-> every day. The **US version** is the same hack moved to the US game: it passes the same automated tests in an
-> emulator, but **it hasn't been tried on a real DS yet.** Only a few people have played either so far.
+> every day. The **US version** (the first release and revision 1) is the same hack moved to the US game: it
+> passes the same automated tests in an emulator, but **it hasn't been tried on a real DS yet.** Only a few people have played either so far.
 > **Back up your save before you start.**
 
 ---
@@ -88,7 +88,9 @@ You need **your own copy** of the game. This repo and its releases contain no ga
    | USA, revision 1 | `acww_plus_<version>_us_rev1.bps` | *Animal Crossing - Wild World (USA) (Rev 1)*, `ADME` rev 1, CRC32 **`7E62F586`** |
 
    The Japanese and Korean versions aren't supported.
-2. **Not sure?** Rom Patcher JS shows your ROM's CRC32 when you load it.
+2. **Not sure?** Rom Patcher JS shows your ROM's CRC32 when you load it; match it against the table. Both US
+   revisions are game code `ADME`, so only the CRC32 tells them apart (rev 1 dumps are often labelled "(Rev 1)" or
+   "v1.1").
 3. **Patch it:** open [Rom Patcher JS](https://www.marcrobledo.com/RomPatcher.js/) in your browser (or use Flips),
    pick your ROM and the `.bps` file, and apply. A wrong base ROM is refused, so you can't patch the wrong one by
    accident.
