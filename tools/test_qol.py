@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """QOL features (ndsref).
-usage: test_qol.py [stage ...]   stages: nook bells bells_full bells_new bells_nostack museum museum_assess (default: all)
+usage: test_qol.py [stage ...]   stages: see STAGES (default: all)
 
 bells*: a 1,000-Bell bag on the square south of the door (acre 9 (11,8)); the player steps out of the house facing
 it and presses B. It stacks onto a pocket bag when the total is a bag (bells, bells_full), else takes a free slot
-(bells_new, bells_nostack). The wallet never changes.
+(bells_new, bells_nostack). The wallet never changes. fruit*: the same with fruit, which stacks up to 9;
+fruit_eat / fruit_bury / fruit_drop use the pockets screen (see pocket_menu_run).
 museum*: walks to Blathers and shows him several items at once (see museum_run)."""
 import sys
 sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parent))
@@ -12,7 +13,13 @@ from harness import *  # noqa
 
 GRID_SAVE = 0xC354
 BAG_1000 = 0x149B
-FILLER = 0x1392        # any plain pocket item (a fruit) to fill the pockets
+FILLER = 0x1392        # any plain pocket item to fill the pockets
+APPLE, ORANGE = 0x1518, 0x1519
+
+
+def apples(n):
+    """The fruit-stack item for n apples (src/heap/fruit_stack.c)."""
+    return APPLE if n == 1 else 0x156E + n - 2
 
 
 def tile_off(acre, lx, lz):
@@ -31,10 +38,10 @@ def wallet(e):
     return e.u32(player_rec(e) + 0x1B40)
 
 
-def bells_run(tag, pocket_items, expect_pockets):
-    """B on a 1,000-Bell bag south of the door with the given pockets; the wallet (5,000) must not change."""
+def bells_run(tag, pocket_items, expect_pockets, ground=BAG_1000):
+    """B on an item (a 1,000-Bell bag) south of the door with the given pockets; the wallet (5,000) must not change."""
     pokes = {0xC + 0x1B22 + 2 * i: (pocket_items[i] if i < len(pocket_items) else 0xFFF1) for i in range(15)}
-    pokes[tile_off(9, 11, 8)] = BAG_1000
+    pokes[tile_off(9, 11, 8)] = ground
     save = prepare_save(BUILD / f"test_qol_{tag}.sav", edits=dict(bells=5000), pokes=pokes)
     with Emu(ROM_PLUS, str(save), tag=f"qol_{tag}") as e:
         e.boot_to_town()
@@ -49,6 +56,48 @@ def bells_run(tag, pocket_items, expect_pockets):
         ok = p1 == want and w1 == w0 and tile == 0xFFF1
         print(f"  [{tag}] pockets {[hex(x) for x in p1[:8]]} (expect {[hex(x) for x in want[:8]]}), "
               f"wallet {w0} -> {w1}, ground={tile:#06x}")
+        print(f"  RESULT {tag}: {'PASS' if ok else 'FAIL'}")
+        return ok
+
+
+def pocket_menu_run(tag, first, dig, menu_downs, expect_slot0, expect_ground=None):
+    """Pockets screen (Y) on slot 0 = `first`, then the item menu (A) and its entry `menu_downs` down:
+    Grab (0, then the player's portrait: eat), Drop on Ground (1), Bury (2, only facing a hole). With `dig`, the
+    player first digs a hole west of the house with the shovel (slot 1, equipped with R). The pockets are read back
+    after the screen closes; `expect_ground` is the square the item went to (the hole, or the player's square)."""
+    pokes = {0xC + 0x1B22 + 2 * i: 0xFFF1 for i in range(15)}
+    pokes[0xC + 0x1B22] = first
+    if dig:
+        pokes[0xC + 0x1B22 + 2] = 0x1369      # shovel
+    save = prepare_save(BUILD / f"test_qol_{tag}.sav", pokes=pokes)
+    with Emu(ROM_PLUS, str(save), tag=f"qol_{tag}") as e:
+        e.boot_to_town()
+        e.wait(200)
+        walk_until(e, "left", 0, 35.5, max_frames=400)
+        walk_until(e, "down", 2, 57.5, max_frames=200)       # acre 9 (2, 10), facing (2, 11)
+        if dig:
+            e.press("r", hold=6, after=90)
+            e.press("a", hold=6, after=300)
+        e.press("y", hold=6, after=120)
+        e.press("a", hold=6, after=60)
+        for _ in range(menu_downs):
+            e.press("down", hold=6, after=40)
+        e.press("a", hold=6, after=60)
+        if menu_downs == 0:                                   # grabbed: up to the portrait, A = eat
+            for _ in range(3):
+                e.press("up", hold=6, after=40)
+            e.press("a", hold=6, after=90)
+        e.wait(400)
+        e.shot(f"qol_{tag}")
+        e.press("b", hold=6, after=60)
+        e.press("y", hold=6, after=200)
+        p = pockets(e)
+        ground = {sq: e.u16(SAVE_RAM_BASE + tile_off(9, *sq)) for sq in ((2, 10), (2, 11))}
+        ok = p[0] == expect_slot0 and all(x == 0xFFF1 for x in p[1 + dig:])
+        if expect_ground:
+            ok = ok and ground[expect_ground[0]] == expect_ground[1]
+        print(f"  [{tag}] slot 0 {p[0]:#06x} (expect {expect_slot0:#06x}), ground "
+              f"{ {k: hex(v) for k, v in ground.items()} } (expect {expect_ground})")
         print(f"  RESULT {tag}: {'PASS' if ok else 'FAIL'}")
         return ok
 
@@ -156,6 +205,23 @@ STAGES = {
     "bells_new": lambda: bells_run("bells_new", [FILLER] * 2, [FILLER, FILLER, BAG_1000]),
     # a 900 bag: 1,900 is no bag, so the new one gets its own slot
     "bells_nostack": lambda: bells_run("bells_nostack", [0x149A], [0x149A, BAG_1000]),
+    # an apple picked up with an apple in the pockets: "2 apples"
+    "fruit": lambda: bells_run("fruit", [FILLER, APPLE], [FILLER, apples(2)], ground=APPLE),
+    # 8 + 1 = 9 apples, with full pockets
+    "fruit_full": lambda: bells_run("fruit_full", [apples(8)] + [FILLER] * 14, [apples(9)] + [FILLER] * 14,
+                                    ground=APPLE),
+    # 9 apples is the most: the next apple gets its own slot
+    "fruit_max": lambda: bells_run("fruit_max", [apples(9)], [apples(9), APPLE], ground=APPLE),
+    # an orange does not join the apples
+    "fruit_kind": lambda: bells_run("fruit_kind", [APPLE], [APPLE, ORANGE], ground=ORANGE),
+    # a dropped stack of 3 picked up again joins 4 apples: 7
+    "fruit_stack": lambda: bells_run("fruit_stack", [apples(4)], [apples(7)], ground=apples(3)),
+    # eating from 3 apples: 2 stay in the slot
+    "fruit_eat": lambda: pocket_menu_run("fruit_eat", apples(3), False, 0, apples(2)),
+    # burying 3 apples in a hole plants one apple sapling (0x37, as vanilla for one apple); 2 stay
+    "fruit_bury": lambda: pocket_menu_run("fruit_bury", apples(3), True, 2, apples(2), ((2, 11), 0x37)),
+    # dropping a stack drops all of it
+    "fruit_drop": lambda: pocket_menu_run("fruit_drop", apples(3), False, 1, 0xFFF1, ((2, 10), apples(3))),
 }
 
 

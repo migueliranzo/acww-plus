@@ -5,10 +5,10 @@
  * (ov047_item_is_museum_related / ov047_item_is_unassessed_fossil). One item is shown, Blathers answers, then asks
  * "anything else?" and, on yes, opens the picker again.
  *
- * Here, while Blathers' picker is open, X marks the slot under the cursor (or unmarks it). A marked slot is greyed
- * with the picker's own grey-out. A picks a slot as usual (a marked one too) and closes the picker. Blathers handles
- * that item as in vanilla; whenever he would open the picker again, the next marked slot is handed to him instead,
- * as if it had been picked. A marked slot whose item changed since is skipped. Cancelling the picker drops the
+ * Here, while Blathers' picker is open, X marks the slot under the cursor (or unmarks it). A marked slot gets the
+ * pocket grid's own green ring (ov094 draws it on slots whose mark bit is set). A picks a slot as usual (a marked
+ * one too) and closes the picker. Blathers handles that item as in vanilla; whenever he would open the picker again,
+ * the next marked slot is handed to him instead, as if it had been picked. A marked slot whose item changed since is skipped. Cancelling the picker drops the
  * marks; so does starting a new conversation with Blathers.
  */
 
@@ -16,7 +16,7 @@
 
 /* ov101: plain slot picker */
 #define PK_CURSOR               0xB3            /* u8: 0..14 pocket slot, 15 quit button */
-#define PK_GREY_BITS            (0xF4 + 0xA48)  /* ov094 grid model at +0xF4, its grey (disabled) slot bits */
+#define PK_MARK_BITS            (0xF4 + 0xA40)  /* ov094 grid model at +0xF4: slots drawn with the extra cell 0x02298648 */
 #define FN_PICKER_GRID          ((void (*)(u8 *pk))(0x02299B54 | 1))           /* sub-state 6: d-pad on the grid */
 #define FN_BITS_CLEAR           ((void (*)(void *bits, int i))(0x022969A4 | 1)) /* ov094 */
 #define FN_BITS_SET             ((void (*)(void *bits, int i))(0x022969C4 | 1)) /* ov094 */
@@ -45,22 +45,22 @@ void hook_picker_grid(u8 *pk) {
     int slot = pk[PK_CURSOR];
     if (s_armed && slot < 15) {
         u16 bit = 1 << slot;
-        void *grey = pk + PK_GREY_BITS;
+        void *ring = pk + PK_MARK_BITS;
         if (PAD_PRESSED & KEY_X) {
             if (s_marks & bit) {
                 s_marks &= ~bit;
-                FN_BITS_CLEAR(grey, slot);
+                FN_BITS_CLEAR(ring, slot);
             } else if (MENU_ALLOW_MASK & bit) {
                 u16 item = FN_POCKET_ITEM_AT(slot);
                 if (item != ITEM_EMPTY) {
                     s_marks |= bit;
                     s_items[slot] = item;
-                    FN_BITS_SET(grey, slot);
+                    FN_BITS_SET(ring, slot);
                 }
             }
         } else if ((PAD_PRESSED & KEY_A) && (s_marks & bit)) {
-            s_marks &= ~bit;              /* picking a marked slot: ungrey it so the picker takes it */
-            FN_BITS_CLEAR(grey, slot);
+            s_marks &= ~bit;              /* picking a marked slot: vanilla handles it, so it is no mark any more */
+            FN_BITS_CLEAR(ring, slot);
         }
     }
     FN_PICKER_GRID(pk);

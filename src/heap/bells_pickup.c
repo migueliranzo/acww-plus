@@ -19,6 +19,8 @@
 
 #define FN_PICK_UP_FLOW         ((void (*)(u32 actor, u8 *state, int pockets_full))(0x0200A900 | 1))
 #define FN_ANIM_CLOCK_ENDED     ((int (*)(u32 clock))(0x02056850 | 1))
+int fruit_stack(u16 item);   /* fruit_stack.c: the same for fruit */
+
 #define FN_POCKET_PUT_ITEM      ((int (*)(const u16 *item))(0x02099470 | 1))
 
 #define ACTOR_ANIM_CLOCK        0x2CC
@@ -75,10 +77,15 @@ static int bag_stack(u16 item) {
     return 0;
 }
 
+/* A Bell bag or a fruit that joins a pocket slot. */
+static int pocket_stack(u16 item) {
+    return bag_stack(item) || fruit_stack(item);
+}
+
 /* Hook: the pick-up flow calls in player_action_19_tick and player_action_1b_tick. */
 void hook_pick_up_flow(u32 actor, u8 *state, int pockets_full) {
     if (*state == 0 && FN_ANIM_CLOCK_ENDED(actor + ACTOR_ANIM_CLOCK)
-            && bag_stack(*(u16 *)(actor + ACTOR_PICKED_ITEM))) {
+            && pocket_stack(*(u16 *)(actor + ACTOR_PICKED_ITEM))) {
         *state = PICK_UP_DONE;
         return;
     }
@@ -87,7 +94,7 @@ void hook_pick_up_flow(u32 actor, u8 *state, int pockets_full) {
 
 /* Hook: pocket_put_item in ov003_player_action_60_end (shovel put-away). */
 int hook_dig_pocket_put(const u16 *item) {
-    if (bag_stack(*item)) {
+    if (pocket_stack(*item)) {
         return 1;
     }
     return FN_POCKET_PUT_ITEM(item);

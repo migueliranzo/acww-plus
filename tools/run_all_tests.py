@@ -30,6 +30,8 @@ TESTS = [
     ["test_qol.py", "bells", "bells_full", "bells_new", "bells_nostack"],
     ["test_qol.py", "nook"],
     ["test_qol.py", "museum", "museum_assess"],
+    ["test_qol.py", "fruit", "fruit_full", "fruit_max", "fruit_kind", "fruit_stack"],
+    ["test_qol.py", "fruit_eat", "fruit_bury", "fruit_drop"],
 ]
 
 

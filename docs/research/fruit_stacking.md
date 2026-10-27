@@ -1,6 +1,7 @@
 # Research: fruit stacking that fits the game
 
-Status: research only (2026-10-27), nothing changed. EU addresses.
+Status: research (2026-10-27). **Built as option A, stacks up to 9: see `docs/features/qol_pack.md`, "Fruit stacks".**
+EU addresses.
 
 ## How fruit works now
 - Fruit is 5 items, `item_is_fruit` (`0x0204C184`): 0x1518 apple, 0x1519 orange, 0x151A pear, 0x151B peach,

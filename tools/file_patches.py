@@ -51,4 +51,46 @@ def look_menu_text(src: Path, dst: Path):
     return out
 
 
-FILE_PATCHES = [look_menu_text]
+FRUIT_FIRST = 0x518            # item_info index of the apple (item 0x1518); orange, pear, peach, cherry follow
+FRUIT_STACK_FIRST = 0x56E      # first blank record: 5 fruits x counts 2..9 = 40 records, 0x56E..0x595
+FRUIT_STACK_MAX = 9
+FRUIT_PLURALS = {
+    "ENG": ["apples", "oranges", "pears", "peaches", "cherries"],
+    "FRN": ["pommes", "oranges", "poires", "pêches", "cerises"],
+    "GER": ["Äpfel", "Orangen", "Birnen", "Pfirsiche", "Kirschen"],
+    "ITA": ["mele", "arance", "pere", "pesche", "ciliegie"],
+    "SPN": ["manzanas", "naranjas", "peras", "melocotones", "cerezas"],
+}
+FRUIT_STACK_ATTR = {"FRN": b"\xff\xff\x00", "GER": b"\xff\xff\x01"}   # as the turnip stacks; others ff ff ff
+
+
+def fruit_stack_items(src: Path, dst: Path):
+    """Fruit stacks (src/heap/fruit_stack.c): records 0x56E..0x595 = '2 apples' .. '9 cherries'.
+    Each copies its fruit's record (icon, kind), with the price times the count; the names are plurals."""
+    out = []
+    for lang in LANGS:
+        names = FRUIT_PLURALS.get(lang, FRUIT_PLURALS["ENG"])
+        for fname, size in (("always.bin", 12), ("indoor.bin", 4), ("dma.bin", 20)):
+            rel = Path("item_info") / lang / fname
+            b = bytearray((src / rel).read_bytes())
+            assert len(b) == 0x600 * size, f"{rel}: unexpected size {len(b)}"
+            for k in range(5):
+                fruit = b[(FRUIT_FIRST + k) * size:(FRUIT_FIRST + k + 1) * size]
+                for n in range(2, FRUIT_STACK_MAX + 1):
+                    i = FRUIT_STACK_FIRST + k * 8 + n - 2
+                    assert not any(b[i * size:(i + 1) * size]), f"{rel}: record 0x{i:X} is not blank"
+                    rec = bytearray(fruit)
+                    if fname == "always.bin":
+                        rec[0:2] = (int.from_bytes(fruit[0:2], "little") * n).to_bytes(2, "little")
+                    elif fname == "dma.bin":
+                        name = f"{n} {names[k]}".encode("latin-1")
+                        assert len(name) < 17, name
+                        rec[0:3] = FRUIT_STACK_ATTR.get(lang, b"\xff\xff\xff")
+                        rec[3:] = name.ljust(17, b"\0")
+                    b[i * size:(i + 1) * size] = rec
+            (dst / rel).write_bytes(b)
+            out.append(rel)
+    return out
+
+
+FILE_PATCHES = [look_menu_text, fruit_stack_items]
