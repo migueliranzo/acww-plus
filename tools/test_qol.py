@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """QOL features (ndsref).
-usage: test_qol.py [stage ...]   stages: nook bells bells_full bells_cap museum museum_assess (default: all)
+usage: test_qol.py [stage ...]   stages: nook bells bells_full bells_new bells_nostack museum museum_assess (default: all)
 
-bells*: a Bell bag on the square south of the door (acre 9 (11,8)); the player steps out of the house facing it
-and presses B. A bag that fits in the wallet goes there, with free pockets (bells) or full ones (bells_full); with
-the wallet near the 99,999 cap (bells_cap) the bag is pocketed as in vanilla."""
+bells*: a 1,000-Bell bag on the square south of the door (acre 9 (11,8)); the player steps out of the house facing
+it and presses B. It stacks onto a pocket bag when the total is a bag (bells, bells_full), else takes a free slot
+(bells_new, bells_nostack). The wallet never changes.
+museum*: walks to Blathers and shows him several items at once (see museum_run)."""
 import sys
 sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parent))
 from harness import *  # noqa
@@ -30,23 +31,24 @@ def wallet(e):
     return e.u32(player_rec(e) + 0x1B40)
 
 
-def bells_run(tag, bells, pocket_items, expect_wallet, expect_in_pocket):
+def bells_run(tag, pocket_items, expect_pockets):
+    """B on a 1,000-Bell bag south of the door with the given pockets; the wallet (5,000) must not change."""
     pokes = {0xC + 0x1B22 + 2 * i: (pocket_items[i] if i < len(pocket_items) else 0xFFF1) for i in range(15)}
     pokes[tile_off(9, 11, 8)] = BAG_1000
-    save = prepare_save(BUILD / f"test_qol_{tag}.sav", edits=dict(bells=bells), pokes=pokes)
+    save = prepare_save(BUILD / f"test_qol_{tag}.sav", edits=dict(bells=5000), pokes=pokes)
     with Emu(ROM_PLUS, str(save), tag=f"qol_{tag}") as e:
         e.boot_to_town()
         e.wait(200)
         walk_until(e, "down", 2, 55.8, max_frames=60)    # facing the bag square
-        w0, p0 = wallet(e), pockets(e)
+        w0 = wallet(e)
         e.press("b", hold=6, after=200)
         e.shot(f"qol_{tag}")
         w1, p1 = wallet(e), pockets(e)
         tile = e.u16(SAVE_RAM_BASE + tile_off(9, 11, 8))
-        bag_pocketed = p1.count(BAG_1000) > p0.count(BAG_1000)
-        ok = w1 == expect_wallet and bag_pocketed == expect_in_pocket and tile == 0xFFF1
-        print(f"  [{tag}] wallet {w0} -> {w1} (expect {expect_wallet}), bag pocketed={bag_pocketed} "
-              f"(expect {expect_in_pocket}), ground={tile:#06x}")
+        want = expect_pockets + [0xFFF1] * (15 - len(expect_pockets))
+        ok = p1 == want and w1 == w0 and tile == 0xFFF1
+        print(f"  [{tag}] pockets {[hex(x) for x in p1[:8]]} (expect {[hex(x) for x in want[:8]]}), "
+              f"wallet {w0} -> {w1}, ground={tile:#06x}")
         print(f"  RESULT {tag}: {'PASS' if ok else 'FAIL'}")
         return ok
 
@@ -145,9 +147,15 @@ STAGES = {
     "museum_assess": lambda: museum_run("museum_assess", 1, {2}, 3, lambda b, a: all(
         is_fossil(x) or x == 0xFFF1 for x in a[2:4]) and a[:2] == b[:2] and a[4:6] == b[4:6]),
     "nook": nook_run,
-    "bells": lambda: bells_run("bells", 5000, [FILLER] * 3, 6000, False),
-    "bells_full": lambda: bells_run("bells_full", 5000, [FILLER] * 15, 6000, False),
-    "bells_cap": lambda: bells_run("bells_cap", 99500, [FILLER] * 3, 99500, True),
+    # a 1,000 bag already in slot 1: it becomes a 2,000 bag
+    "bells": lambda: bells_run("bells", [FILLER, BAG_1000, FILLER], [FILLER, BAG_1000 + 1, FILLER]),
+    # same with full pockets (no "pockets are full" talk)
+    "bells_full": lambda: bells_run("bells_full", [FILLER, BAG_1000] + [FILLER] * 13,
+                                    [FILLER, BAG_1000 + 1] + [FILLER] * 13),
+    # no bag in the pockets: the bag takes the first free slot (vanilla)
+    "bells_new": lambda: bells_run("bells_new", [FILLER] * 2, [FILLER, FILLER, BAG_1000]),
+    # a 900 bag: 1,900 is no bag, so the new one gets its own slot
+    "bells_nostack": lambda: bells_run("bells_nostack", [0x149A], [0x149A, BAG_1000]),
 }
 
 
