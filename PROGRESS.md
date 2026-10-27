@@ -65,6 +65,13 @@ Build: `py -3.12 tools/build_rom.py` → `build/acww_plus.nds`. Headless tests: 
   by the owner) and US `acww_plus_alpha1_us.bps` (base ADME rev 0, CRC32 F24508AA, emulator-tested only: --release
   suite 25/25 on both). The US port maps the EU addresses through `tools/regions/adme.py` (`tools/remap_region.py`).
 
+- **US rev 1 added to alpha1 (2026-10-25):** `acww_plus_alpha1_us_rev1.bps` for *Animal Crossing - Wild World (USA)
+  (Rev 1)* (base CRC32 7E62F586, patched ROM CRC32 15BCB2C5). Rev 1 is a rebuilt binary with its own region `us1`
+  and table `tools/regions/adme_rev1.py`; dev suite 29/29, --release suite 25/25, emulator only. The rev 0 patch
+  is unchanged.
+- **Japanese version: deferred to the beta (2026-10-25).** Addresses map (`tools/regions/admj.py`), but the save,
+  player and actor layouts and the phone menu differ; findings and plan in `docs/research/jp_port.md`.
+
 ## QOL pack (2026-10-27, EU only)
 - Bell bags picked up stack onto a pocket bag (100 + 100 → 200), wallet untouched.
 - Fruit stacks up to 9 in one slot ("2 apples" .. "9 apples"); eating or planting takes one, Nook pays per fruit.
