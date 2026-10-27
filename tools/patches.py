@@ -37,6 +37,9 @@ PATCHES = [
     # --- Feature 8: Nookington's without a visitor purchase ---
     # shop_visitor_sale_flag_test (only caller: shop_next_stage) -> movs r0,#1; bx lr
     ("arm9", 0x020AEA8C, "bytes", "01480721", "01207047", "Nookington's: visitor-purchase flag always set"),
+    # nook_daily_restock: the sale day, evening sale and spotlight (rare) item need 2+ residents; also allow 1
+    # (the other condition, a resident who finished Nook's part-time job, player flag 1 clear, is kept)
+    ("arm9", 0x020AE8AA, "bytes", "17d0", "c046", "Nook sales / spotlight item: residents == 1 no longer skips them"),
 
     # --- Feature 7: monkeys obtainable ---
     # Species table 0x020CC9B8 (150 x 0x4E), +0x4B move class: 0 starter or move-in, 1 move-in only, 2 never.

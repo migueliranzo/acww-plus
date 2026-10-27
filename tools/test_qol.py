@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """QOL features (ndsref).
-usage: test_qol.py [stage ...]   stages: bells bells_full bells_cap (default: all)
+usage: test_qol.py [stage ...]   stages: nook bells bells_full bells_cap (default: all)
 
 bells*: a Bell bag on the square south of the door (acre 9 (11,8)); the player steps out of the house facing it
 and presses B. A bag that fits in the wallet goes there, with free pockets (bells) or full ones (bells_full); with
@@ -51,7 +51,33 @@ def bells_run(tag, bells, pocket_items, expect_wallet, expect_in_pocket):
         return ok
 
 
+NOOK_RAM = 0x021F07AC     # block 0x15DB4, nook_daily_restock's record
+
+
+def nook_state(rom, tag):
+    # +0x51 = 1: nook_restock_date_differs() says yes, so the shop restocks when the town loads (+0x50 = 0x18 kept).
+    # Player flags 0x202 -> 0x200: flag 1 (Nook's part-time job not finished) cleared, as for any player past it.
+    save = prepare_save(BUILD / f"test_qol_{tag}.sav", pokes={0x15DB4 + 0x50: 0x0118, 0xC + 0x21FC: 0x0200})
+    with Emu(rom, str(save), tag=f"qol_{tag}") as e:
+        e.boot_to_town()
+        e.wait(60)
+        return e.read(A(NOOK_RAM) + 0x4C, 0x14)
+
+
+def nook_run():
+    """One-player town (the d25 save, restocked on load): the patched ROM runs the sale-day scheduler, which writes
+    the next sale day's date at +0x52; vanilla skips it."""
+    v_rec = nook_state(ROM_VANILLA, "nook_v")
+    p_rec = nook_state(ROM_PLUS, "nook_p")
+    print(f"  [nook] vanilla +0x4C: {v_rec.hex()}")
+    print(f"  [nook] plus    +0x4C: {p_rec.hex()}")
+    ok = v_rec[6:9] == bytes(3) and p_rec[6:9] != bytes(3)
+    print(f"  RESULT nook: {'PASS' if ok else 'FAIL'} (sale day scheduled only with the patch)")
+    return ok
+
+
 STAGES = {
+    "nook": nook_run,
     "bells": lambda: bells_run("bells", 5000, [FILLER] * 3, 6000, False),
     "bells_full": lambda: bells_run("bells_full", 5000, [FILLER] * 15, 6000, False),
     "bells_cap": lambda: bells_run("bells_cap", 99500, [FILLER] * 3, 99500, True),
