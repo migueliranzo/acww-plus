@@ -65,6 +65,14 @@ Build: `py -3.12 tools/build_rom.py` → `build/acww_plus.nds`. Headless tests: 
   by the owner) and US `acww_plus_alpha1_us.bps` (base ADME rev 0, CRC32 F24508AA, emulator-tested only: --release
   suite 25/25 on both). The US port maps the EU addresses through `tools/regions/adme.py` (`tools/remap_region.py`).
 
+## QOL pack (2026-10-27, EU only)
+- Bell bags picked up stack onto a pocket bag (100 + 100 → 200), wallet untouched.
+- Blathers: X marks several items in his picker; he then takes them one after another (donations and fossil
+  assessments) without reopening the pockets.
+- Nook's sale day, evening sale and spotlight item now also happen in one-player towns.
+- Fruit stacking: research only, `docs/research/fruit_stacking.md`.
+- Notes: `docs/features/qol_pack.md`. Tests: `tools/test_qol.py` (in `run_all_tests.py`). US addresses not mapped.
+
 ## Log
 - 2026-10-22: lamp switching reworked (shade goes dark when off): the emission-based version changed nothing on
   screen (owner report). Night glow removed.

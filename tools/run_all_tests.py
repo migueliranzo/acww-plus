@@ -27,6 +27,9 @@ TESTS = [
     ["test_skin_tone.py"],
     ["test_pattern_alpha.py", "plus"],
     ["test_look_persist.py"],
+    ["test_qol.py", "bells", "bells_full", "bells_new", "bells_nostack"],
+    ["test_qol.py", "nook"],
+    ["test_qol.py", "museum", "museum_assess"],
 ]
 
 

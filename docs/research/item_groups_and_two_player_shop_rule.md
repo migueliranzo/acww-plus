@@ -1,6 +1,8 @@
 # Research: item groups per town, and Nook's "2 or more players" features
 
-Status: research only (2026-10-25), nothing changed. Prompted by a community comment:
+Status: research (2026-10-25). **Update 2026-10-27:** the 2-resident rule is patched out (one resident is enough;
+see `docs/features/qol_pack.md`). Player flag 1 turned out to be "Nook's part-time job not finished", so a one-player
+town gets the sale day, evening sale and spotlight item once the job is done. Prompted by a community comment:
 
 > The game divides furniture and clothes into groups (A, B, C, D) which are different per town. One of those groups
 > has a 0% (I think) chance, to encourage trading via multiplayer. [...] Nook's Spotlight Special and Point Sales are
