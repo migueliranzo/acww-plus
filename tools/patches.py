@@ -95,6 +95,15 @@ PATCHES = [
     ("arm9", 0x02009F6C, "bl", "00f0c8fc", "hook_pick_up_flow", "player_action_1b_tick -> pick-up flow"),
     ("arm9", 0x0200A848, "bl", "00f05af8", "hook_pick_up_flow", "player_action_19_tick -> pick-up flow"),
     ("ov003", 0x0220CD4E, "bl", "8cf68ffb", "hook_dig_pocket_put", "action 0x60 (shovel put-away) -> pocket_put_item"),
+
+    # --- Several items for Blathers in one go (src/heap/museum_bulk.c) ---
+    ("ov101", 0x0229A6A8, "ptr", "559b2902", "hook_picker_grid", "slot picker sub-state 6 (d-pad grid): X marks"),
+    ("ov047", 0x0225EC38, "ptr", "c5d12502", "hook_blathers_open_donate", "choice -> open the donation picker"),
+    ("ov047", 0x0225EC20, "ptr", "9dd12502", "hook_blathers_open_assess", "choice -> open the assessment picker"),
+    ("ov047", 0x0225EC28, "ptr", "9dd12502", "hook_blathers_open_assess", "choice -> open the assessment picker"),
+    ("ov047", 0x0225EC78, "ptr", "49dd2502", "hook_blathers_donate_picked", "after the donation picker"),
+    ("ov047", 0x0225EC70, "ptr", "a9dc2502", "hook_blathers_assess_picked", "after the assessment picker"),
+    ("ov047", 0x0225ED48, "ptr", "edd12502", "hook_blathers_step", "Blathers' talk step (vtable)"),
 ]
 
 

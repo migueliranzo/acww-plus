@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """QOL features (ndsref).
-usage: test_qol.py [stage ...]   stages: nook bells bells_full bells_cap (default: all)
+usage: test_qol.py [stage ...]   stages: nook bells bells_full bells_cap museum museum_assess (default: all)
 
 bells*: a Bell bag on the square south of the door (acre 9 (11,8)); the player steps out of the house facing it
 and presses B. A bag that fits in the wallet goes there, with free pockets (bells) or full ones (bells_full); with
@@ -76,7 +76,74 @@ def nook_run():
     return ok
 
 
+MUSEUM_POCKET = [0x12E8, 0x12B0, 0x1549, 0x1549, 0x450C, 0x1392]   # bitterling, butterfly, 2 fossils, amber, fruit
+
+
+def to_blathers(e):
+    """House (acre 9) -> museum door (acre 8, square (23,59)) -> in front of Blathers, talking, choices shown."""
+    e.wait(200)
+    walk_until(e, "down", 2, 61.5, max_frames=400)
+    walk_until(e, "left", 0, 24.2, max_frames=1200)
+    walk_until(e, "left", 0, 23.6, max_frames=60, step=1)
+    walk_until(e, "up", 2, 58.0, max_frames=300)
+    e.wait(400)                                   # museum lobby, entrance at (8, 14.5)
+    walk_until(e, "left", 0, 7.6, max_frames=40, step=1)
+    walk_until(e, "up", 2, 11.8, max_frames=200, step=2)
+    e.press("a", hold=6, after=240)
+    for _ in range(5):
+        e.press("b", hold=6, after=100)          # speeds the greeting up (on the choices B would pick the last)
+    e.press("a", hold=6, after=100)               # choices shown
+
+
+def museum_run(tag, choice_downs, marks, pick, expect):
+    """Opens Blathers' picker (choice index choice_downs), X on the slots in marks, A on pick, then A through the
+    talk (yes / "Sure is!" / "Yep!" are the defaults). expect(before, after) checks the pockets."""
+    pokes = {0xC + 0x1B22 + 2 * i: (MUSEUM_POCKET[i] if i < len(MUSEUM_POCKET) else 0xFFF1) for i in range(15)}
+    save = prepare_save(BUILD / f"test_qol_{tag}.sav", pokes=pokes)
+    with Emu(ROM_PLUS, str(save), tag=f"qol_{tag}") as e:
+        e.boot_to_town()
+        to_blathers(e)
+        for _ in range(choice_downs):
+            e.press("down", hold=6, after=30)
+        e.press("a", hold=6, after=200)           # the topic
+        armed = {l.split()[1]: int(l.split()[0], 16) for l in open(BUILD / "heap.map")}["s_armed"]
+        for _ in range(20):                       # A through the talk until the picker is requested
+            if e.u8(armed):
+                break
+            e.press("a", hold=6, after=120)
+        e.press("a", hold=6, after=400)           # "...what you wish to donate!" -> the picker fades in
+        before = pockets(e)
+        cur = 0
+        for slot in sorted(marks) + [pick]:
+            while cur < slot:
+                e.press("right", hold=6, after=30)
+                cur += 1
+            if slot in marks and slot != pick:
+                e.press("x", hold=6, after=30)
+        e.shot(f"{tag}_marked")
+        e.press("a", hold=6, after=200)           # pick
+        for _ in range(60):
+            e.press("a", hold=6, after=110)
+        e.shot(f"{tag}_end")
+        after = pockets(e)
+        ok = expect(before, after)
+        print(f"  [{tag}] pockets {[hex(x) for x in before[:6]]} -> {[hex(x) for x in after[:6]]}")
+        print(f"  RESULT {tag}: {'PASS' if ok else 'FAIL'}")
+        return ok
+
+
+def is_fossil(x):
+    return 0x450C <= x <= 0x45DB
+
+
 STAGES = {
+    # bitterling and butterfly marked, amber picked: all three donated, the rest untouched
+    "museum": lambda: museum_run("museum", 0, {0, 1}, 4, lambda b, a: a[0] == a[1] == a[4] == 0xFFF1
+                                 and a[2:4] == b[2:4] and a[5] == b[5]),
+    # "Check a fossil!": the first unassessed fossil marked, the second picked: both assessed (and, A being the
+    # default answer, then donated too: assessed fossils or empty slots)
+    "museum_assess": lambda: museum_run("museum_assess", 1, {2}, 3, lambda b, a: all(
+        is_fossil(x) or x == 0xFFF1 for x in a[2:4]) and a[:2] == b[:2] and a[4:6] == b[4:6]),
     "nook": nook_run,
     "bells": lambda: bells_run("bells", 5000, [FILLER] * 3, 6000, False),
     "bells_full": lambda: bells_run("bells_full", 5000, [FILLER] * 15, 6000, False),
