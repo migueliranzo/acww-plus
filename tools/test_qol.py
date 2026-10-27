@@ -92,10 +92,15 @@ def pocket_menu_run(tag, first, dig, menu_downs, expect_slot0, expect_ground=Non
         e.press("b", hold=6, after=60)
         e.press("y", hold=6, after=200)
         p = pockets(e)
-        ground = {sq: e.u16(SAVE_RAM_BASE + tile_off(9, *sq)) for sq in ((2, 10), (2, 11))}
+        # the item's square: the hole, or a free square next to the player (the game picks it: US rev 0 drops
+        # north of the player, the others on the player's square)
+        ground = {(x, z): e.u16(SAVE_RAM_BASE + tile_off(9, x, z)) for x in (1, 2, 3) for z in (9, 10, 11)}
+        ground = {sq: v for sq, v in ground.items() if v != 0xFFF1 or sq in ((2, 10), (2, 11))}
         ok = p[0] == expect_slot0 and all(x == 0xFFF1 for x in p[1 + dig:])
         if expect_ground:
-            ok = ok and ground[expect_ground[0]] == expect_ground[1]
+            sq, item = expect_ground
+            near = [k for k, v in ground.items() if v == item and abs(k[0] - sq[0]) <= 1 and abs(k[1] - sq[1]) <= 1]
+            ok = ok and (ground[sq] == item if dig else len(near) == 1)
         print(f"  [{tag}] slot 0 {p[0]:#06x} (expect {expect_slot0:#06x}), ground "
               f"{ {k: hex(v) for k, v in ground.items()} } (expect {expect_ground})")
         print(f"  RESULT {tag}: {'PASS' if ok else 'FAIL'}")

@@ -72,6 +72,10 @@ def fruit_stack_items(src: Path, dst: Path):
         names = FRUIT_PLURALS.get(lang, FRUIT_PLURALS["ENG"])
         for fname, size in (("always.bin", 12), ("indoor.bin", 4), ("dma.bin", 20)):
             rel = Path("item_info") / lang / fname
+            name_at = 3                           # dma.bin: EU records have 3 attribute bytes, then the name
+            if not (src / rel).exists():          # the US games (English only): no language folders, 2 attribute
+                rel = Path("item_info") / fname   # bytes (the EU's first two), the name at +2
+                name_at = 2
             b = bytearray((src / rel).read_bytes())
             assert len(b) == 0x600 * size, f"{rel}: unexpected size {len(b)}"
             for k in range(5):
@@ -84,9 +88,9 @@ def fruit_stack_items(src: Path, dst: Path):
                         rec[0:2] = (int.from_bytes(fruit[0:2], "little") * n).to_bytes(2, "little")
                     elif fname == "dma.bin":
                         name = f"{n} {names[k]}".encode("latin-1")
-                        assert len(name) < 17, name
-                        rec[0:3] = FRUIT_STACK_ATTR.get(lang, b"\xff\xff\xff")
-                        rec[3:] = name.ljust(17, b"\0")
+                        assert len(name) < size - name_at, name
+                        rec[0:name_at] = FRUIT_STACK_ATTR.get(lang, b"\xff\xff\xff")[:name_at]
+                        rec[name_at:] = name.ljust(size - name_at, b"\0")
                     b[i * size:(i + 1) * size] = rec
             (dst / rel).write_bytes(b)
             out.append(rel)

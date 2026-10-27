@@ -246,6 +246,9 @@ def apply_patches(syms):
     skip = [x for x in os.environ.get("ACWW_SKIP", "").split(",") if x]   # experiments: skip patches by value
     for mod, addr, kind, expect, value, note in PATCHES:
         if REGION_ADDR is not None:      # EU module, address and bytes -> this region's
+            if REGION_EXPECT.get(addr, "") is None:
+                print(f"      NONE  {mod} 0x{addr:08X} {value} (no counterpart in {REGION}: remap_region.ABSENT)")
+                continue
             if addr not in REGION_ADDR or addr not in REGION_EXPECT:
                 raise RuntimeError(f"{mod} 0x{addr:08X} is not in the {REGION} address table (tools/remap_region.py)")
             mod = f"ov{OVERLAY_MAP[int(mod[2:])]:03d}" if mod.startswith("ov") else mod

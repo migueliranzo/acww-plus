@@ -7,6 +7,9 @@ ADDR = {
     0x02000000: 0x02000000,   # identity
     0x02007CDC: 0x02007C08,   # arm9: bytes 14 window(s)
     0x02009538: 0x02009464,   # read from the action table at 0x020D6064
+    0x02009F6C: 0x02009E98,   # arm9: bytes 12 window(s)
+    0x0200A848: 0x0200A774,   # arm9: bytes 17 window(s)
+    0x0200A900: 0x0200A82C,   # arm9: bytes 17 window(s)
     0x0200C3D8: 0x0200C304,   # read from the action table at 0x020D6234
     0x0200C470: 0x0200C39C,   # read from the action table at 0x020D623C
     0x0200C6C8: 0x0200C5F4,   # read from the action table at 0x020D6244
@@ -33,10 +36,15 @@ ADDR = {
     0x02042C14: 0x02042AEC,   # arm9: bytes 17 window(s)
     0x02042DB4: 0x02042C8C,   # arm9: bytes 16 window(s)
     0x02042DC4: 0x02042C9C,   # arm9: bytes 17 window(s)
+    0x02043D24: 0x02043BFC,   # arm9: bytes 17 window(s)
+    0x02043D50: 0x02043C28,   # arm9: bytes 17 window(s)
     0x02044CEA: 0x02044BC2,   # arm9: bytes 17 window(s)
     0x020454D4: 0x020453AC,   # arm9: bytes 17 window(s)
     0x020457B4: 0x0204568C,   # arm9: bytes 17 window(s)
     0x0204BD5C: 0x0204BC34,   # arm9: bytes 15 window(s)
+    0x0204BF98: 0x0204BE70,   # arm9: bytes 17 window(s)
+    0x0204BF9C: 0x0204BE74,   # arm9: bytes 16 window(s)
+    0x0204BFA1: 0x0204BE79,   # arm9: bytes 17 window(s)
     0x0204ED00: 0x0204EBD8,   # arm9: bytes 14 window(s)
     0x0204EF38: 0x0204EE10,   # arm9: bytes 17 window(s)
     0x020525E8: 0x0205242C,   # arm9: bytes 17 window(s)
@@ -50,17 +58,39 @@ ADDR = {
     0x0205574C: 0x02055550,   # arm9: bytes 17 window(s)
     0x020557FC: 0x02055600,   # arm9: bytes 17 window(s)
     0x02055920: 0x02055724,   # arm9: bytes 15 window(s)
+    0x02056850: 0x02056654,   # arm9: bytes 17 window(s)
     0x0205C868: 0x0205C66C,   # arm9: bytes 3 window(s)
     0x0205C890: 0x0205C694,   # arm9: bytes 3 window(s)
     0x0205F170: 0x0205EF74,   # arm9: bytes 15 window(s)
+    0x02061B40: 0x02061944,   # arm9: bytes 10 window(s)
+    0x02061B7C: 0x02061980,   # arm9: bytes 8 window(s)
+    0x02061C48: 0x02061A4C,   # arm9: bytes 7 window(s)
+    0x02061D14: 0x02061B18,   # arm9: bytes 7 window(s)
+    0x02061DE0: 0x02061BE4,   # arm9: bytes 7 window(s)
+    0x02061EAC: 0x02061CB0,   # arm9: bytes 10 window(s)
+    0x02061F74: 0x02061D78,   # arm9: bytes 16 window(s)
+    0x02061FC0: 0x02061DC4,   # arm9: bytes 13 window(s)
+    0x02061FFC: 0x02061E00,   # arm9: bytes 10 window(s)
+    0x020620B0: 0x02061EB4,   # arm9: bytes 12 window(s)
+    0x020620EC: 0x02061EF0,   # arm9: bytes 17 window(s)
+    0x020621D8: 0x02061FDC,   # arm9: bytes 11 window(s)
+    0x02062214: 0x02062018,   # arm9: bytes 10 window(s)
+    0x02062250: 0x02062054,   # arm9: bytes 7 window(s)
+    0x0206228C: 0x02062090,   # known (remap_region.KNOWN)
+    0x02062304: 0x020620D4,   # arm9: bytes 4 window(s)
+    0x020623B8: 0x02062188,   # arm9: bytes 5 window(s)
     0x02064490: 0x020641EC,   # arm9: bytes 17 window(s)
     0x02064F68: 0x02064CC4,   # arm9: bytes 17 window(s)
     0x0206F468: 0x0206F140,   # arm9: bytes 17 window(s)
     0x02071864: 0x02071530,   # arm9: bytes 14 window(s)
+    0x02094E94: 0x02094B48,   # arm9: bytes 17 window(s)
     0x02094EC4: 0x02094B78,   # arm9: bytes 17 window(s)
     0x02095550: 0x02095204,   # arm9: bytes 14 window(s)
     0x02097858: 0x0209750C,   # arm9: bytes 11 window(s)
     0x02098B1C: 0x020987D0,   # arm9: bytes 17 window(s)
+    0x02099394: 0x02099048,   # arm9: bytes 16 window(s)
+    0x02099470: 0x02099124,   # arm9: bytes 16 window(s)
+    0x020AE8AA: 0x020AE456,   # arm9: bytes 17 window(s)
     0x020AEA8C: 0x020AE638,   # arm9: bytes 10 window(s)
     0x020B13A8: 0x020B0F54,   # arm9: bytes 15 window(s)
     0x020B2A90: 0x020B263C,   # arm9: bytes 17 window(s)
@@ -109,12 +139,16 @@ ADDR = {
     0x02117BD8: 0x021147F4,   # autoload2: bytes 12 window(s)
     0x021C70A0: 0x021C3CC0,   # refs 39 vote(s) within -0x40
     0x021C7BA4: 0x021C47C4,   # refs 40 vote(s) within -0x40
+    0x021CEB48: 0x021CB4A0,   # refs 30 vote(s) within -0x40
+    0x021CEB54: 0x021CB4AC,   # refs 26 vote(s) within -0x40
+    0x021CEB64: 0x021CB4BC,   # refs 28 vote(s) within -0x40
     0x021D3F04: 0x021D085C,   # refs 54 vote(s) within -0x40
     0x021DA914: 0x021D726C,   # refs 14 vote(s) within -0x40
     0x021DA9F8: 0x021D7350,   # refs 38 vote(s) within -0x40
     0x021DAA04: 0x021D735C,   # refs 37 vote(s) within -0x40
     0x021E6D4C: 0x021E36A4,   # refs 5 vote(s) within -0x40
     0x021EF9C2: 0x021EC31A,   # refs 1 vote(s) within -0x40
+    0x021F07AC: 0x021ED104,   # refs 24 vote(s) within -0x40
     0x021F2CB0: 0x021EF608,   # refs 26 vote(s) within -0x40
     0x021F2CB4: 0x021EF60C,   # refs 31 vote(s) within -0x40
     0x021F2CC4: 0x021EF61C,   # refs 26 vote(s) within -0x40
@@ -133,6 +167,7 @@ ADDR = {
     0x022088A8: 0x02205208,   # ov003: bytes 17 window(s)
     0x02208916: 0x02205276,   # ov003: bytes 17 window(s)
     0x02208946: 0x022052A6,   # ov003: bytes 17 window(s)
+    0x0220CD4E: 0x022096AE,   # ov003: bytes 17 window(s)
     0x02220ADA: 0x0221D2C6,   # ov003: bytes 10 window(s)
     0x022212C2: 0x0221DAAE,   # ov003: bytes 17 window(s)
     0x022212C6: 0x0221DAB2,   # ov003: bytes 17 window(s)
@@ -159,23 +194,76 @@ ADDR = {
     0x0222D5F0: 0x02229F50,   # ov004: bytes 11 window(s)
     0x0222D9D8: 0x0222A338,   # ov004: bytes 7 window(s)
     0x02251A04: 0x0224E324,   # refs 3 vote(s) within -0x40
+    0x0225D19C: 0x02259A3C,   # read from the action table at 0x0225B4C0
+    0x0225D1C4: 0x02259A64,   # read from the action table at 0x0225B4D8
+    0x0225D1EC: 0x02259A8C,   # read from the action table at 0x0225B5E8
+    0x0225DCA8: 0x0225A548,   # read from the action table at 0x0225B510
+    0x0225DD48: 0x0225A5E8,   # read from the action table at 0x0225B518
     0x0225DD4C: 0x0225A17C,   # refs 19 vote(s) within -0x40
+    0x0225EC20: 0x0225B4C0,   # ov047: bytes 1 window(s)
+    0x0225EC28: 0x0225B4C8,   # ov047: bytes 1 window(s)
+    0x0225EC38: 0x0225B4D8,   # ov047: bytes 1 window(s)
+    0x0225EC70: 0x0225B510,   # ov047: bytes 3 window(s)
+    0x0225EC78: 0x0225B518,   # ov047: bytes 3 window(s)
+    0x0225ED48: 0x0225B5E8,   # ov047: bytes 2 window(s)
     0x02295E58: 0x02292298,   # ov123: bytes 17 window(s)
     0x02295E90: 0x022922D0,   # ov123: bytes 17 window(s)
+    0x022969A4: 0x02292DCC,   # ov094: bytes 8 window(s)
+    0x022969C4: 0x02292DEC,   # ov094: bytes 7 window(s)
+    0x02299B54: 0x02295F74,   # read from the action table at 0x02296AC8
+    0x0229A6A8: 0x02296AC8,   # ov101: bytes 1 window(s)
+    0x0229AA1C: 0x02296E3C,   # ov096: bytes 17 window(s)
+    0x0229AA50: 0x02296E70,   # ov096: bytes 17 window(s)
+    0x0229AB98: 0x02296FB8,   # ov096: bytes 17 window(s)
+    0x0229B508: 0x02297928,   # ov096: bytes 17 window(s)
+    0x0229B77C: 0x02297B9C,   # ov096: bytes 14 window(s)
+    0x0229BC4C: 0x0229806C,   # ov096: bytes 14 window(s)
+    0x0229BC80: 0x022980A0,   # ov096: bytes 16 window(s)
+    0x0229C474: 0x02298894,   # ov096: bytes 17 window(s)
+    0x0229C484: 0x022988A4,   # ov096: bytes 17 window(s)
+    0x0229C65A: 0x02298A7A,   # ov096: bytes 17 window(s)
+    0x0229CFC0: 0x022993E0,   # ov096: bytes 17 window(s)
+    0x0229D61E: 0x02299A3E,   # ov096: bytes 17 window(s)
+    0x0229F198: 0x0229B5B8,   # ov098: bytes 17 window(s)
     0x0229F9A0: 0x0229BDC0,   # code home base (end of the highest overlay)
     0x02400000: 0x02400000,   # identity
+    0xA8001C04: 0xA8001C04,   # read from the action table at 0x0204BE74
 }
 
-# patch address (EU) -> vanilla bytes at the mapped address in this region
+# patch address (EU) -> vanilla bytes at the mapped address in this region (None: no counterpart, remap_region.ABSENT)
 PATCH_EXPECT = {
+    0x02009F6C: "00f0c8fc",
+    0x0200A848: "00f05af8",
     0x0200DF00: "02f06cfe",
     0x0200DF10: "00f03cf9",
     0x0200FAF0: "f5f18efa",
     0x0200FC6E: "00f0b5ff",
     0x02042B7A: "00f04bf8",
     0x02042DB4: "00f006f8",
+    0x02043D24: "00f014f8",
     0x02044CEA: "00f063fd",
+    0x0204BF98: "10b584b0",
+    0x0204BF9C: "041c00a8",
+    0x02061B40: "6e050000",
+    0x02061B7C: "6e050000",
+    0x02061C48: "6e050000",
+    0x02061D14: "6e050000",
+    0x02061DE0: "6e050000",
+    0x02061EAC: "6e050000",
+    0x02061F74: "6e050000",
+    0x02061FC0: "6e050000",
+    0x02061FFC: "6e050000",
+    0x020620B0: "6e050000",
+    0x020620EC: "6e050000",
+    0x020621D8: "6e050000",
+    0x02062214: "6e050000",
+    0x02062250: "6e050000",
+    0x0206228C: "6e050000",
+    0x020622C8: None,
+    0x02062304: "6e050000",
+    0x020623B8: "6e050000",
     0x02071864: "e4f7f8f8",
+    0x020AE8AA: "17d0",
     0x020AEA8C: "01480721",
     0x020B2A90: "6df182fb",
     0x020CF5E3: "02",
@@ -209,6 +297,7 @@ PATCH_EXPECT = {
     0x022088A8: "fff7c2fd",
     0x02208916: "fff78bfd",
     0x02208946: "fff773fd",
+    0x0220CD4E: "8ff639fd",
     0x02220ADA: "28f671f8",
     0x022212C2: "90300068",
     0x022212C6: "2ef6",
@@ -220,6 +309,21 @@ PATCH_EXPECT = {
     0x0222D5F0: "a0e22402",
     0x0222D9D8: "a59e2202",
     0x02251A04: "a59e2202",
+    0x0225EC20: "3d9a2502",
+    0x0225EC28: "3d9a2502",
+    0x0225EC38: "659a2502",
+    0x0225EC70: "49a52502",
+    0x0225EC78: "e9a52502",
+    0x0225ED48: "8d9a2502",
     0x02295E58: "0129",
     0x02295E90: "0121",
+    0x0229A6A8: "755f2902",
+    0x0229AA1C: "fdf584fe",
+    0x0229B508: "fff746fb",
+    0x0229C474: "fcf558f9",
+    0x0229C484: "fff7e2fb",
+    0x0229C65A: "fef7f9f9",
+    0x0229CFC0: "fdf7eafd",
+    0x0229D61E: "fdf7bbfa",
+    0x0229F198: "fcf758fd",
 }

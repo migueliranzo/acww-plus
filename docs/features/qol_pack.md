@@ -1,6 +1,6 @@
 # QOL pack: Bell bags, fruit stacks, Blathers, Nook's one-player sales
 
-Status: **done on EU** (headless tests pass; not hardware-tested; US not mapped yet). Code: `src/heap/bells_pickup.c`,
+Status: **done on EU, US rev 0 and US rev 1** (headless tests pass on all three; not hardware-tested). Code: `src/heap/bells_pickup.c`,
 `src/heap/fruit_stack.c`, `src/heap/museum_bulk.c`, patches in `tools/patches.py`, item records in
 `tools/file_patches.py`. Tests: `tools/test_qol.py`.
 
@@ -60,5 +60,13 @@ has ~1 KB left, so new hooks live in the code home).
   restock and shows each check.
 - Not tested in play: the evening-sale (1 in 14 days) and spotlight (1 in 5 days, not on sale days) rolls.
 
-## US
-None of the new addresses are in `tools/regions/adme.py` yet; run `tools/remap_region.py us` before a US build.
+## US (rev 0 and rev 1)
+Mapped by `tools/remap_region.py us` / `us1` like the rest (overlay hints for the ov047 / ov094 / ov096 / ov101
+functions the heap code calls). Two things differ from the EU:
+- **item_info getters.** The EU has one getter per record field, each clamping the index to 0x56E, in the order +1,
+  +0, +2 (byte), +2 (halfword). In the US the +2-byte one (a language attribute) is a `return -1` stub, so the US
+  has 17 clamps, not 18. Byte matching put two EU clamps on the same US address; the +0 getter is pinned in
+  `remap_region.KNOWN` and the +2-byte clamp is in `remap_region.ABSENT` (the build skips it, `NONE` in its log).
+  The remap now reports two patches that map to one address.
+- **Item names (dma.bin).** The US files have no language folders, and the records have 2 attribute bytes (the EU's
+  first two), the name at +2. `file_patches.fruit_stack_items` handles both.

@@ -44,6 +44,10 @@ OVERLAY_HINTS = {
     0x02225420: "ov004", 0x02224E2C: "ov004", 0x0222484C: "ov004", 0x02225330: "ov004", 0x02224C80: "ov004",
     0x022246F8: "ov004", 0x022253CC: "ov004", 0x02224E08: "ov004", 0x022247DC: "ov004", 0x022253EC: "ov004",
     0x02224E18: "ov004", 0x0222481C: "ov004",
+    # QOL pack: Blathers (ov047), the pocket grid (ov094), the slot picker (ov101), the pockets screen (ov096)
+    0x0225D19C: "ov047", 0x0225D1C4: "ov047", 0x0225D1EC: "ov047", 0x0225DCA8: "ov047", 0x0225DD48: "ov047",
+    0x022969A4: "ov094", 0x022969C4: "ov094", 0x02299B54: "ov101",
+    0x0229AA50: "ov096", 0x0229AB98: "ov096", 0x0229B77C: "ov096", 0x0229BC4C: "ov096", 0x0229BC80: "ov096",
 }
 # Addresses the patches imply but do not list.
 EXTRA = [
@@ -54,6 +58,20 @@ EXTRA = [
 BYTE_BRANCHES = [("ov003", 0x022212C6, 0x022212FA)]
 # Literals that are not addresses in the game's binaries (ranges, ROM-wide constants): kept as they are.
 IDENTITY = {0x02000000, 0x02400000}
+# Functions whose body differs in a region, so byte matching can't find them (the reference vote then lands on a
+# neighbour). Found by hand, from a caller that does match; checked by disassembly.
+KNOWN = {
+    # The item_info getters (one per record field, each clamping the index to 0x56E) are ordered +1, +0, +2 (byte),
+    # +2 (halfword) in the EU. The US games keep +1, +0, +2 (halfword); the +2-byte one (a language attribute) is a
+    # "return -1" stub there. The +0 getter's literal is found by that order.
+    "us": {0x0206228C: 0x02062024},
+    "us1": {0x0206228C: 0x02062090},
+}
+# Patches with no counterpart in a region (the code they change is not there): the build leaves them out.
+ABSENT = {
+    "us": {0x020622C8},       # the +2-byte item_info getter's clamp (above)
+    "us1": {0x020622C8},
+}
 
 
 strip_c_comments = regions.strip_c_comments
@@ -191,6 +209,7 @@ def match_bytes(eu, us, eu_mod, us_mod, off, align=2, predicted=None):
 
 class Remapper:
     def __init__(self, region):
+        self.region = region
         self.eu = Image("eu")
         self.us = Image(region)
         self.ovmap = regions.overlay_map(region)
@@ -296,6 +315,10 @@ class Remapper:
         if eu_addr in IDENTITY:
             self.found[eu_addr] = (eu_addr, "identity")
             return eu_addr
+        known = KNOWN.get(self.region, {})
+        if eu_addr in known:
+            self.found[eu_addr] = (known[eu_addr], "known (remap_region.KNOWN)")
+            return known[eu_addr]
         res, detail = how(eu_addr, *args, **kw)
         if res is None:
             self.problems.append(f"0x{eu_addr:08X}: {detail}")
@@ -313,6 +336,9 @@ def main():
     # 1. patches (module known)
     patch_out = {}
     for mod, addr, kind, expect, value, note in PATCHES:
+        if addr in ABSENT.get(region, ()):
+            patch_out[addr] = None
+            continue
         thumb = kind in ("bl",) or (kind == "bytes" and len(expect) == 4)
         u = r.add(addr, r.code, mod, thumb=thumb if kind != "ptr" and kind != "dptr" else False)
         if u is None:
@@ -382,6 +408,14 @@ def main():
                 continue
             r.add(a, r.code, None, thumb=bool(a & 1) or True)
 
+    # two patches on one address: one of them was mapped wrong
+    seen = {}
+    for a, p in patch_out.items():
+        if p is not None and p[:2] in seen:
+            r.problems.append(f"patches 0x{seen[p[:2]]:08X} and 0x{a:08X} both map to {p[0]} 0x{p[1]:08X}")
+        elif p is not None:
+            seen[p[:2]] = a
+
     # 3. build constants: check the arena literal of the other region
     au = r.us.mods["autoload2"]
     lit = consts["ARENA_LO_LITERAL"]
@@ -402,12 +436,14 @@ def main():
     for a in sorted(r.found):
         u, d = r.found[a]
         lines.append(f"    0x{a:08X}: 0x{u:08X},   # {d}")
-    lines += ["}", "", "# patch address (EU) -> vanilla bytes at the mapped address in this region", "PATCH_EXPECT = {"]
+    lines += ["}", "", "# patch address (EU) -> vanilla bytes at the mapped address in this region (None: no counterpart, "
+              "remap_region.ABSENT)", "PATCH_EXPECT = {"]
     for a in sorted(patch_out):
-        lines.append(f"    0x{a:08X}: \"{patch_out[a][2]}\",")
+        lines.append(f"    0x{a:08X}: None," if patch_out[a] is None else f"    0x{a:08X}: \"{patch_out[a][2]}\",")
     lines += ["}", ""]
     out.write_text("\n".join(lines), encoding="utf-8")
-    print(f"wrote {out.relative_to(ROOT)}: {len(r.found)} addresses, {len(patch_out)} of {len(PATCHES)} patches")
+    print(f"wrote {out.relative_to(ROOT)}: {len(r.found)} addresses, {len(patch_out)} of {len(PATCHES)} patches"
+          f" ({sum(p is None for p in patch_out.values())} with no counterpart)")
     for k, v in consts.items():
         print(f"  {k:18s} EU 0x{eu_consts[k]:08X} -> 0x{v:08X}")
     if r.problems:
