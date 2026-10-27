@@ -19,6 +19,12 @@ DEFAULTS = {
     # first use in vanilla/ADME/extracted of the main checkout (git-ignored), unless US_VANILLA_EXTRACTED is set.
     "US_ROM": r"E:\Users\Migue\Downloads\0223 - Animal Crossing - Wild World (U)(SCZ)\0223 - Animal Crossing - Wild World (U)(SCZ).nds",
     "US_VANILLA_EXTRACTED": "",
+    # US rev 1 build only: your own dump of US rev 1 (ADME rev 1, CRC32 7E62F586); unpacked into vanilla/ADME1/extracted
+    "US1_ROM": r"E:\Users\Migue\Downloads\Welcome to Animal Crossing - Wild World (USA) (Rev 1)\1479 - Welcome to Animal Crossing - Wild World (USA) (Rev 1).nds",
+    "US1_VANILLA_EXTRACTED": "",
+    # JP build only: your own dump of Oide yo Doubutsu no Mori (ADMJ, CRC32 76E797D8); unpacked into vanilla/ADMJ/extracted
+    "JP_ROM": r"E:\Users\Migue\Downloads\Oide yo Doubutsu no Mori (JP)\0193 Oide yo Doubutsu no Mori (JP).nds",
+    "JP_VANILLA_EXTRACTED": "",
     # That ROM unpacked with dsd ("dsd rom extract"); the build copies vanilla binaries and files from here
     "VANILLA_EXTRACTED": r"E:\claudeGameDecomp\extracted",
     # dsd (https://github.com/AetiasHax/ds-decomp): rebuilds the ROM

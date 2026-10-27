@@ -37,6 +37,9 @@ PATCHES = [
     # --- Feature 8: Nookington's without a visitor purchase ---
     # shop_visitor_sale_flag_test (only caller: shop_next_stage) -> movs r0,#1; bx lr
     ("arm9", 0x020AEA8C, "bytes", "01480721", "01207047", "Nookington's: visitor-purchase flag always set"),
+    # nook_daily_restock: the sale day, evening sale and spotlight (rare) item need 2+ residents; also allow 1
+    # (the other condition, a resident who finished Nook's part-time job, player flag 1 clear, is kept)
+    ("arm9", 0x020AE8AA, "bytes", "17d0", "c046", "Nook sales / spotlight item: residents == 1 no longer skips them"),
 
     # --- Feature 7: monkeys obtainable ---
     # Species table 0x020CC9B8 (150 x 0x4E), +0x4B move class: 0 starter or move-in, 1 move-in only, 2 never.
@@ -87,6 +90,39 @@ PATCHES = [
     # editor (ov123) L/R colour cycle includes colour 0 (transparent): L wraps at 0, R wraps 15 -> 0
     ("ov123", 0x02295E58, "bytes", "0129", "0029", "editor L: cmp r1,#1 -> #0 (1 -> 0 -> 15)"),
     ("ov123", 0x02295E90, "bytes", "0121", "0021", "editor R: wrap 15 -> 0 (was -> 1)"),
+
+    # --- Bell bags picked up go to the wallet (src/heap/bells_pickup.c) ---
+    ("arm9", 0x02009F6C, "bl", "00f0c8fc", "hook_pick_up_flow", "player_action_1b_tick -> pick-up flow"),
+    ("arm9", 0x0200A848, "bl", "00f05af8", "hook_pick_up_flow", "player_action_19_tick -> pick-up flow"),
+    ("ov003", 0x0220CD4E, "bl", "8cf68ffb", "hook_dig_pocket_put", "action 0x60 (shovel put-away) -> pocket_put_item"),
+
+    # --- Several items for Blathers in one go (src/heap/museum_bulk.c) ---
+    ("ov101", 0x0229A6A8, "ptr", "559b2902", "hook_picker_grid", "slot picker sub-state 6 (d-pad grid): X marks"),
+    ("ov047", 0x0225EC38, "ptr", "c5d12502", "hook_blathers_open_donate", "choice -> open the donation picker"),
+    ("ov047", 0x0225EC20, "ptr", "9dd12502", "hook_blathers_open_assess", "choice -> open the assessment picker"),
+    ("ov047", 0x0225EC28, "ptr", "9dd12502", "hook_blathers_open_assess", "choice -> open the assessment picker"),
+    ("ov047", 0x0225EC78, "ptr", "49dd2502", "hook_blathers_donate_picked", "after the donation picker"),
+    ("ov047", 0x0225EC70, "ptr", "a9dc2502", "hook_blathers_assess_picked", "after the assessment picker"),
+    ("ov047", 0x0225ED48, "ptr", "edd12502", "hook_blathers_step", "Blathers' talk step (vtable)"),
+
+    # --- Fruit stacks up to 9 (src/heap/fruit_stack.c, records in tools/file_patches.py) ---
+    # item_info accessors clamp an index >= 0x56E to 0x56D ("garbage"): allow the 40 stack records 0x56E..0x595
+    *[("arm9", a, "bytes", "6e050000", "96050000", "item_info clamp: index < 0x596")
+      for a in (0x02061B40, 0x02061B7C, 0x02061C48, 0x02061D14, 0x02061DE0, 0x02061EAC, 0x02061F74, 0x02061FC0,
+                0x02061FFC, 0x020620B0, 0x020620EC, 0x020621D8, 0x02062214, 0x02062250, 0x0206228C, 0x020622C8,
+                0x02062304, 0x020623B8)],
+    # item_value entry -> ldr r3, =hook_item_value; bx r3 (the hook runs the 4 moved instructions itself)
+    ("arm9", 0x0204BF98, "bytes", "10b584b0", "004b1847", "item_value -> hook_item_value (jump)"),
+    ("arm9", 0x0204BF9C, "ptr", "041c00a8", "hook_item_value", "item_value -> hook_item_value (address)"),
+    ("ov096", 0x0229B508, "bl", "fff746fb", "hook_equip_kind", "pockets: held item dropped on the player -> kind"),
+    ("ov096", 0x0229CFC0, "bl", "fdf7eafd", "hook_equip_kind", "pockets: held item dropped on the player -> kind"),
+    ("ov096", 0x0229D61E, "bl", "fdf7bbfa", "hook_equip_kind", "pockets: held item dropped on the player -> kind"),
+    ("ov096", 0x0229AA1C, "bl", "faf53afa", "hook_queue_eat", "pockets: eat the held item"),
+    ("ov096", 0x0229C474, "bl", "f8f50efd", "hook_queue_eat", "pockets: eat the slot's item"),
+    ("ov096", 0x0229C65A, "bl", "fef7f9f9", "hook_equip_result", "pockets: held item after eating"),
+    ("ov096", 0x0229C484, "bl", "fff7e2fb", "hook_eat_slot_clear", "pockets: slot after eating"),
+    ("arm9", 0x02043D24, "bl", "00f014f8", "hook_bury_field_ids", "item put in a hole -> what it plants"),
+    ("ov098", 0x0229F198, "bl", "fcf758fd", "hook_eat_slot_clear", "pockets: slot after burying its item"),
 ]
 
 

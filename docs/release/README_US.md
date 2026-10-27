@@ -25,12 +25,13 @@ before you start.
 ## How to patch
 1. You need your own dump of *Animal Crossing - Wild World (USA)*, game code ADME, first release (rev 0),
    33,554,432 bytes, CRC32 **F24508AA** (other hashes in `hashes_us.txt`). The European, Japanese and Korean
-   versions won't work, and neither will the later US revision (v1.1).
+   versions won't work. For the later US revision (rev 1, "v1.1") use `acww_plus_<version>_us_rev1.bps`.
 2. Open [Rom Patcher JS](https://www.marcrobledo.com/RomPatcher.js/) (or Flips), choose your ROM and the `.bps`
    file, and apply. A wrong base ROM is refused.
 3. Play the patched ROM on a flashcart or an emulator.
 
 ## Saves
+- **Flashcarts and emulators:** name the save like the patched ROM (`acww_plus.sav` next to `acww_plus.nds`). Wild World saves are 256 KB; some flashcarts (the original R4 and many clones) want 512 KB and call a 256 KB save "damaged". Resize it with https://savefileconverter.com/#/flash-carts. More in the main README: https://github.com/migueliranzo/acww-plus#using-your-save-on-a-flashcart-or-an-emulator
 - Your existing US save works as is.
 - Going back to the original game: the save loads, and the hack's extras are ignored:
   - Shoes and socks are back to their normal colours.
