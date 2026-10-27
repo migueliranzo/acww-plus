@@ -87,6 +87,11 @@ PATCHES = [
     # editor (ov123) L/R colour cycle includes colour 0 (transparent): L wraps at 0, R wraps 15 -> 0
     ("ov123", 0x02295E58, "bytes", "0129", "0029", "editor L: cmp r1,#1 -> #0 (1 -> 0 -> 15)"),
     ("ov123", 0x02295E90, "bytes", "0121", "0021", "editor R: wrap 15 -> 0 (was -> 1)"),
+
+    # --- Bell bags picked up go to the wallet (src/heap/bells_pickup.c) ---
+    ("arm9", 0x02009F6C, "bl", "00f0c8fc", "hook_pick_up_flow", "player_action_1b_tick -> pick-up flow"),
+    ("arm9", 0x0200A848, "bl", "00f05af8", "hook_pick_up_flow", "player_action_19_tick -> pick-up flow"),
+    ("ov003", 0x0220CD4E, "bl", "8cf68ffb", "hook_dig_pocket_put", "action 0x60 (shovel put-away) -> pocket_put_item"),
 ]
 
 

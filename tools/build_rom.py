@@ -398,6 +398,7 @@ def build_heap_code(itcm_syms):
     print(f"      Heap code: {len(blob)} bytes at 0x{HEAP_CODE_BASE:08X} (autoload 3), "
           f"{HEAP_CODE_RESERVE - len(blob)} of 0x{HEAP_CODE_RESERVE:X} left; arena lo -> "
           f"0x{HEAP_CODE_BASE + HEAP_CODE_RESERVE:08X}")
+    return {n: a for n, a in syms.items() if n and HEAP_CODE_BASE <= a < HEAP_CODE_BASE + len(blob)}
 
 
 def main():
@@ -443,10 +444,10 @@ def main():
     # cost ~12% of the ARM9 in town (tools/probes/headroom_probe.py: idle 47% vs 59%).
     shutil.copyfile(VANILLA_EXTRACTED / "arm9" / "arm9.yaml", EXTRACTED_DIR / "arm9" / "arm9.yaml")
     shutil.copyfile(VANILLA_EXTRACTED / "arm9_overlays" / "overlays.yaml", EXTRACTED_DIR / "arm9_overlays" / "overlays.yaml")
-    apply_patches(syms)
+    heap_syms = build_heap_code(syms)
+    apply_patches({**heap_syms, **syms})    # hooks can point at ITCM or code-home functions
     if os.environ.get("ACWW_NO_FILES") != "1":
         apply_file_patches()
-    build_heap_code(syms)
 
     print(f"[4/4] Building ROM {OUT_ROM}...")
     build_cmd = [
